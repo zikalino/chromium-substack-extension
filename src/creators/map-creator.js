@@ -322,6 +322,11 @@ function drawNodes(nodes, positions) {
 function drawGeographyGrid(points) {
   const bounds = computeBounds(points);
   const frame = getMapFrame();
+  const t = getMapTransform(bounds, frame);
+
+  const mercW = (t.mercLon(bounds.maxLon) - t.mx0) * t.scale;
+  const mercH = (t.mercLat(bounds.minLat) - t.my0) * t.scale;
+  const renderedRect = { x: t.offsetX, y: t.offsetY, width: mercW, height: mercH };
 
   ctx.strokeStyle = "rgba(56, 79, 68, 0.22)";
   ctx.lineWidth = 1;
@@ -346,7 +351,7 @@ function drawGeographyGrid(points) {
 
   ctx.strokeStyle = "rgba(47, 95, 79, 0.55)";
   ctx.lineWidth = 2;
-  ctx.strokeRect(frame.x, frame.y, frame.width, frame.height);
+  ctx.strokeRect(renderedRect.x, renderedRect.y, renderedRect.width, renderedRect.height);
 }
 
 function drawGeocodedConnections(links, byQuery, points) {
@@ -509,27 +514,39 @@ function getMapFrame() {
   };
 }
 
-function projectLatLon(lat, lon, bounds, frame) {
-  const xRatio = (lon - bounds.minLon) / Math.max(bounds.maxLon - bounds.minLon, 0.0001);
-  const yRatio = mercatorY(lat, bounds.minLat, bounds.maxLat);
-
-  return {
-    x: frame.x + xRatio * frame.width,
-    y: frame.y + yRatio * frame.height
+// Returns the transform needed to draw the map with correct 1:1 Mercator aspect ratio,
+// centered inside `frame` (letterboxed if the frame aspect differs from the map's).
+function getMapTransform(bounds, frame) {
+  const mercLon = (lon) => (lon + 180) / 360;
+  const mercLat = (lat) => {
+    const rad = (clamp(lat, -85, 85) * Math.PI) / 180;
+    return (1 - Math.log(Math.tan(Math.PI / 4 + rad / 2)) / Math.PI) / 2;
   };
+
+  const mx0 = mercLon(bounds.minLon);
+  const mx1 = mercLon(bounds.maxLon);
+  const my0 = mercLat(bounds.maxLat); // top edge
+  const my1 = mercLat(bounds.minLat); // bottom edge
+
+  const mercW = Math.max(mx1 - mx0, 1e-6);
+  const mercH = Math.max(my1 - my0, 1e-6);
+
+  // Uniform scale: fit the Mercator rectangle into the frame while preserving aspect
+  const scale = Math.min(frame.width / mercW, frame.height / mercH);
+
+  // Center the rendered area inside the frame
+  const offsetX = frame.x + (frame.width  - mercW * scale) / 2;
+  const offsetY = frame.y + (frame.height - mercH * scale) / 2;
+
+  return { mx0, my0, scale, offsetX, offsetY, mercLon, mercLat };
 }
 
-function mercatorY(lat, minLat, maxLat) {
-  const merc = (value) => {
-    const clamped = clamp(value, -85, 85);
-    const radians = (clamped * Math.PI) / 180;
-    return Math.log(Math.tan(Math.PI / 4 + radians / 2));
+function projectLatLon(lat, lon, bounds, frame) {
+  const { mx0, my0, scale, offsetX, offsetY, mercLon, mercLat } = getMapTransform(bounds, frame);
+  return {
+    x: offsetX + (mercLon(lon) - mx0) * scale,
+    y: offsetY + (mercLat(lat) - my0) * scale
   };
-
-  const top = merc(maxLat);
-  const bottom = merc(minLat);
-  const current = merc(lat);
-  return (top - current) / Math.max(top - bottom, 0.0001);
 }
 
 function drawArrowHead(x1, y1, x2, y2, size) {
@@ -614,7 +631,11 @@ async function fetchAndDrawOSMTiles(bounds, frame) {
 
   ctx.save();
   ctx.beginPath();
-  ctx.rect(frame.x, frame.y, frame.width, frame.height);
+  // Clip to the actual rendered map area (not the full frame, which may be wider/taller)
+  const t = getMapTransform(bounds, frame);
+  const mercW = (t.mercLon(bounds.maxLon) - t.mx0) * t.scale;
+  const mercH = (t.mercLat(bounds.minLat) - t.my0) * t.scale;
+  ctx.rect(t.offsetX, t.offsetY, mercW, mercH);
   ctx.clip();
 
   for (const { img, tx, ty } of tiles) {
@@ -629,8 +650,7 @@ async function fetchAndDrawOSMTiles(bounds, frame) {
   return true;
 }
 
-function drawOSMAttribution(frame) {
-  const text = "© OpenStreetMap contributors";
+function drawOSMAttribution(frame) {  const bounds_placeholder = null; // bounds not needed — just use frame bottom-right  const text = "© OpenStreetMap contributors";
   ctx.font = "11px sans-serif";
   const tw = ctx.measureText(text).width;
   const px = frame.x + frame.width - tw - 6;
