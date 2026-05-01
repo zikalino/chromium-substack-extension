@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graph Tool</title>
+    <link rel="stylesheet" href="./graph-tool.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="chart-tabs" id="chart-tabs">
+        <button class="chart-tab active" data-chart="bar">Bar</button>
+        <button class="chart-tab" data-chart="line">Line</button>
+        <button class="chart-tab" data-chart="area">Area</button>
+        <button class="chart-tab" data-chart="pie">Pie</button>
+        <button class="chart-tab" data-chart="doughnut">Doughnut</button>
+        <button class="chart-tab" data-chart="half-doughnut">Half Doughnut</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="left-panel">
+        <div class="panel-tabs" id="panel-tabs">
+          <button class="panel-tab active" data-panel="data">Chart Data</button>
+          <button class="panel-tab" data-panel="import">Import Data</button>
+          <button class="panel-tab" data-panel="settings">Setting</button>
+        </div>
+
+        <div class="panel-body" id="panel-data">
+          <div class="table-wrap">
+            <table id="data-table" class="data-grid"></table>
+          </div>
+          <div class="row-actions">
+            <button id="add-row">Add row</button>
+            <button id="add-col">Add column</button>
+            <button id="render-from-grid" class="primary">Render</button>
+          </div>
+        </div>
+
+        <div class="panel-body hidden" id="panel-import">
+          <p class="hint">Paste CSV. First row is header. First column is labels.</p>
+          <textarea id="import-csv" placeholder="Label,Series A,Series B&#10;Item1,10,20&#10;Item2,25,32"></textarea>
+          <div class="row-actions">
+            <button id="import-apply" class="primary">Import CSV</button>
+          </div>
+        </div>
+
+        <div class="panel-body hidden" id="panel-settings">
+          <label>Title
+            <input id="chart-title" type="text" value="My Chart" />
+          </label>
+          <label>Series column
+            <select id="series-column"></select>
+          </label>
+          <label>Primary color
+            <input id="primary-color" type="color" value="#f23b5e" />
+          </label>
+          <label>Secondary color
+            <input id="secondary-color" type="color" value="#2f5f4f" />
+          </label>
+          <label>Show value labels
+            <select id="show-values">
+              <option value="yes" selected>Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <div class="row-actions">
+            <button id="apply-settings" class="primary">Apply</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="right-panel">
+        <div class="preview-actions">
+          <button id="download-chart" class="primary">Download</button>
+          <button id="save-chart" class="primary">Save to Image Assets</button>
+        </div>
+        <div class="preview-wrap">
+          <canvas id="chart-canvas" width="960" height="620"></canvas>
+        </div>
+        <p id="status-text" class="status">Ready</p>
+      </section>
+    </main>
+
+    <script type="module" src="./graph-tool.js"></script>
+  </body>
+</html>

@@ -1,0 +1,232 @@
+:root {
+  --bg: #f4f5ef;
+  --surface: #fffdf8;
+  --ink: #1f2a1f;
+  --muted: #5f6a61;
+  --border: #d4d0c4;
+  --accent: #2f5f4f;
+  --danger: #9e2a2b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 0% 0%, #f9e7c8 0, transparent 45%),
+    radial-gradient(circle at 100% 0%, #d8f0e4 0, transparent 45%),
+    var(--bg);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 253, 248, 0.93);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 250px;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  padding: 0.75rem;
+  box-shadow: 0 6px 16px rgba(47, 95, 79, 0.08);
+}
+
+.panel h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.92rem;
+}
+
+.tool-grid {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.8rem;
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+}
+
+.tool-btn {
+  min-height: 2.4rem;
+  font-size: 0.82rem;
+}
+
+.tool-stack {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.canvas-panel {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: #fcfcf8;
+  box-shadow: 0 6px 16px rgba(47, 95, 79, 0.08);
+  min-height: 640px;
+}
+
+.canvas-wrap {
+  width: 100%;
+  height: calc(100vh - 130px);
+  min-height: 620px;
+  overflow: auto;
+  border-radius: 0.75rem;
+}
+
+#diagram-svg {
+  width: 1400px;
+  height: 900px;
+  display: block;
+  cursor: crosshair;
+}
+
+#diagram-svg.select-mode {
+  cursor: default;
+}
+
+label {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin-bottom: 0.45rem;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.42rem;
+  padding: 0.42rem;
+  background: #fff;
+  color: var(--ink);
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: var(--ink);
+  padding: 0.4rem 0.62rem;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+button:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+button.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.active {
+  border-color: var(--accent);
+  background: rgba(47, 95, 79, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.shape-group {
+  cursor: move;
+}
+
+.selection-box {
+  fill: transparent;
+  stroke: #2f5f4f;
+  stroke-width: 1.6;
+  stroke-dasharray: 8 5;
+  pointer-events: none;
+}
+
+.resize-handle {
+  fill: #2ea8ef;
+  stroke: #ffffff;
+  stroke-width: 1.4;
+  cursor: pointer;
+}
+
+.resize-handle.n,
+.resize-handle.s {
+  cursor: ns-resize;
+}
+
+.resize-handle.e,
+.resize-handle.w {
+  cursor: ew-resize;
+}
+
+.resize-handle.ne,
+.resize-handle.sw {
+  cursor: nesw-resize;
+}
+
+.resize-handle.nw,
+.resize-handle.se {
+  cursor: nwse-resize;
+}
+
+.resize-handle.line-start,
+.resize-handle.line-end {
+  cursor: move;
+}
+
+@media (max-width: 1080px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .canvas-wrap {
+    height: 64vh;
+    min-height: 420px;
+  }
+}

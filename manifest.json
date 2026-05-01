@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Substack Sidepanel Companion",
+  "description": "Sidepanel workflow extension for Substack author research, citations, bookmarks, and draft context.",
+  "version": "0.1.0",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "scripting",
+    "sidePanel",
+    "storage",
+    "tabs",
+    "clipboardRead"
+  ],
+  "host_permissions": [
+    "*://*.substack.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Open Substack Sidepanel"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.substack.com/*"
+      ],
+      "js": [
+        "src/content/substack-page.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content/general-page.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

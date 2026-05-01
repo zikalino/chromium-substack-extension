@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Editor</title>
+    <link rel="stylesheet" href="./image-editor.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Image Editor</h1>
+      <p id="status-text">Ready</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="inline-form">
+          <select id="editor-image-select" title="Select image"></select>
+          <button id="load-image">Load image</button>
+          <button id="refresh-images">Refresh images</button>
+        </div>
+
+        <canvas id="editor-canvas" width="640" height="360"></canvas>
+
+        <div class="editor-controls">
+          <label>X <input id="crop-x" type="number" min="0" value="0" /></label>
+          <label>Y <input id="crop-y" type="number" min="0" value="0" /></label>
+          <label>W <input id="crop-w" type="number" min="1" value="300" /></label>
+          <label>H <input id="crop-h" type="number" min="1" value="200" /></label>
+          <button id="crop-image">Crop</button>
+        </div>
+
+        <div class="editor-controls">
+          <label>Resize W <input id="resize-w" type="number" min="1" value="640" /></label>
+          <label>Resize H <input id="resize-h" type="number" min="1" value="360" /></label>
+          <button id="resize-image">Resize</button>
+          <button id="create-collage">Create collage from selected</button>
+          <button id="save-edited-image">Save edited image</button>
+        </div>
+
+        <p class="helper">Use Ctrl/Cmd + Click on image cards to select images for collage.</p>
+      </section>
+
+      <section class="card">
+        <h2>Image Assets</h2>
+        <div id="image-grid" class="image-grid"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./image-editor.js"></script>
+  </body>
+</html>

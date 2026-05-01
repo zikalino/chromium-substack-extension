@@ -1,0 +1,154 @@
+:root {
+  --bg: #f4f5ef;
+  --surface: #fffdf7;
+  --ink: #1f2a1f;
+  --muted: #6b7567;
+  --accent: #2f5f4f;
+  --border: #d8d4c8;
+  --danger: #9e2a2b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 0% 0%, #f9e7c8 0, transparent 40%),
+    radial-gradient(circle at 100% 0%, #d8f0e4 0, transparent 40%),
+    var(--bg);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 253, 247, 0.95);
+  padding: 0.75rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.topbar p {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.layout {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  box-shadow: 0 5px 14px rgba(47, 95, 79, 0.07);
+}
+
+.inline-form {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.65rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+input,
+select {
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.45rem;
+  width: 100%;
+  background: #fffeff;
+}
+
+#editor-canvas {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: #fff;
+  margin-top: 0.3rem;
+}
+
+.editor-controls {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.editor-controls label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.helper {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 0.45rem;
+}
+
+.image-grid {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 0.4rem;
+}
+
+.image-card {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  padding: 0.25rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.image-card.selected {
+  border-color: var(--accent);
+  outline: 2px solid rgba(47, 95, 79, 0.2);
+}
+
+.image-card img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 0.3rem;
+}
+
+@media (max-width: 720px) {
+  .editor-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

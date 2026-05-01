@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Diagram Editor</title>
+    <link rel="stylesheet" href="./diagram-editor.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Diagram Editor</h1>
+        <p id="status-text" class="status">Choose a tool, click canvas, drag to move.</p>
+      </div>
+      <div class="header-actions">
+        <button id="btn-export-png" class="primary">Export PNG</button>
+        <button id="btn-save-assets" class="primary">Save to Image Assets</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel left-panel">
+        <h2>Tools</h2>
+        <div class="tool-grid">
+          <button data-tool="select" class="tool-btn active">Select</button>
+          <button data-tool="rect" class="tool-btn">Rectangle</button>
+          <button data-tool="rounded-rect" class="tool-btn">Rounded</button>
+          <button data-tool="square" class="tool-btn">Square</button>
+          <button data-tool="ellipse" class="tool-btn">Ellipse</button>
+          <button data-tool="circle" class="tool-btn">Circle</button>
+          <button data-tool="diamond" class="tool-btn">Diamond</button>
+          <button data-tool="parallelogram" class="tool-btn">Parallelogram</button>
+          <button data-tool="trapezoid" class="tool-btn">Trapezoid</button>
+          <button data-tool="hexagon" class="tool-btn">Hexagon</button>
+          <button data-tool="triangle" class="tool-btn">Triangle</button>
+          <button data-tool="arrow-right" class="tool-btn">Arrow</button>
+          <button data-tool="chevron" class="tool-btn">Chevron</button>
+          <button data-tool="cylinder" class="tool-btn">Cylinder</button>
+          <button data-tool="cloud" class="tool-btn">Cloud</button>
+          <button data-tool="document" class="tool-btn">Document</button>
+          <button data-tool="note" class="tool-btn">Note</button>
+          <button data-tool="speech" class="tool-btn">Speech</button>
+          <button data-tool="actor" class="tool-btn">Actor</button>
+          <button data-tool="crescent" class="tool-btn">Moon</button>
+          <button data-tool="line" class="tool-btn">Line</button>
+          <button data-tool="arrow-line" class="tool-btn">Arrow Line</button>
+          <button data-tool="double-arrow" class="tool-btn">Double Arrow</button>
+          <button data-tool="dashed-line" class="tool-btn">Dashed Line</button>
+          <button data-tool="wave" class="tool-btn">Wave</button>
+          <button data-tool="text" class="tool-btn">Text</button>
+        </div>
+
+        <h2>Actions</h2>
+        <div class="tool-stack">
+          <button id="btn-delete" class="danger">Delete Selected</button>
+          <button id="btn-duplicate">Duplicate</button>
+          <button id="btn-clear">Clear Canvas</button>
+        </div>
+      </aside>
+
+      <section class="canvas-panel">
+        <div class="canvas-wrap" id="canvas-wrap">
+          <svg id="diagram-svg" viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg" aria-label="Diagram canvas">
+            <defs>
+              <pattern id="gridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#dfe3d8" stroke-width="1" />
+              </pattern>
+              <pattern id="majorGridPattern" width="100" height="100" patternUnits="userSpaceOnUse">
+                <rect width="100" height="100" fill="url(#gridPattern)" />
+                <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#c6ccbf" stroke-width="1.2" />
+              </pattern>
+              <marker id="arrowHead" markerWidth="12" markerHeight="12" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#2f5f4f"></path>
+              </marker>
+              <marker id="arrowHeadStart" markerWidth="12" markerHeight="12" refX="3" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M9,0 L9,6 L0,3 z" fill="#2f5f4f"></path>
+              </marker>
+            </defs>
+            <rect x="0" y="0" width="1400" height="900" fill="url(#majorGridPattern)"></rect>
+            <g id="shape-layer"></g>
+            <g id="selection-layer"></g>
+          </svg>
+        </div>
+      </section>
+
+      <aside class="panel right-panel">
+        <h2>Style</h2>
+        <label>Fill color
+          <input id="fill-color" type="color" value="#e7f2ec" />
+        </label>
+        <label>Stroke color
+          <input id="stroke-color" type="color" value="#2f5f4f" />
+        </label>
+        <label>Stroke width
+          <input id="stroke-width" type="number" min="1" max="12" value="2" />
+        </label>
+        <label>Text
+          <input id="text-value" type="text" value="Text" />
+        </label>
+        <label>Text size
+          <input id="text-size" type="number" min="10" max="96" value="22" />
+        </label>
+        <label>Text align
+          <select id="text-align">
+            <option value="start">Left</option>
+            <option value="middle" selected>Center</option>
+            <option value="end">Right</option>
+          </select>
+        </label>
+        <button id="btn-apply-style">Apply to Selected</button>
+      </aside>
+    </main>
+
+    <script type="module" src="./diagram-editor.js"></script>
+  </body>
+</html>

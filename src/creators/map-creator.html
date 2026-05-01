@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Map</title>
+    <link rel="stylesheet" href="./shared.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Create Map</h1>
+      <p id="status-text" class="status">Provide cities and routes, then render.</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Map Data</h2>
+        <div class="grid-2">
+          <label>Map mode
+            <select id="map-mode">
+              <option value="geocoded" selected>Geocoded route map</option>
+              <option value="manual">Manual node layout</option>
+            </select>
+          </label>
+          <label>Map Title
+            <input id="map-title" type="text" value="City Connection Map" />
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label>Cities (one per line)
+            <textarea id="city-lines" placeholder="Prague&#10;Berlin&#10;Vienna"></textarea>
+          </label>
+          <label>Connections (A-B, one per line)
+            <textarea id="connection-lines" placeholder="Prague-Berlin&#10;Berlin-Vienna&#10;Prague-Vienna"></textarea>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label>Layout
+            <select id="layout-type">
+              <option value="circle">Circle</option>
+              <option value="grid">Grid</option>
+            </select>
+          </label>
+          <label>Geocoding source
+            <input type="text" value="Open-Meteo geocoding API" disabled />
+          </label>
+        </div>
+
+        <p class="hint">Tip: in geocoded mode, city order defines route order if no explicit connections are provided.</p>
+        <p id="geocode-results" class="hint"></p>
+
+        <div class="actions">
+          <button id="load-example">Load example</button>
+          <button id="render-map" class="primary">Render map</button>
+          <button id="save-map" class="primary">Save to Image Assets</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Preview</h2>
+        <div class="canvas-wrap">
+          <canvas id="map-canvas" class="preview-canvas" width="1200" height="700"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./map-creator.js"></script>
+  </body>
+</html>

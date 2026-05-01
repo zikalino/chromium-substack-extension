@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Table</title>
+    <link rel="stylesheet" href="./shared.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Create Table</h1>
+      <p id="status-text" class="status">Build your table, style it, then render and save.</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Table Setup</h2>
+        <div class="grid-2">
+          <label>Rows
+            <input id="table-rows" type="number" min="1" max="30" value="4" />
+          </label>
+          <label>Columns
+            <input id="table-cols" type="number" min="1" max="12" value="4" />
+          </label>
+          <label>Text alignment
+            <select id="table-align">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label>Header row
+            <select id="table-header-row">
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="grid-2">
+          <label>Cell background
+            <input id="table-cell-bg" type="color" value="#ffffff" />
+          </label>
+          <label>Header background
+            <input id="table-header-bg" type="color" value="#dff1e8" />
+          </label>
+          <label>Text color
+            <input id="table-text-color" type="color" value="#1f2a1f" />
+          </label>
+          <label>Border color
+            <input id="table-border-color" type="color" value="#8aa79a" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="build-table-grid">Build / Update Grid</button>
+          <button id="save-table" class="primary">Save to Image Assets</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Cell Editor</h2>
+        <div class="actions">
+          <button id="add-table-row">Add row</button>
+          <button id="add-table-col">Add column</button>
+          <button id="remove-table-row">Remove row</button>
+          <button id="remove-table-col">Remove column</button>
+          <span id="table-selection" class="hint table-selection">No cell selected</span>
+        </div>
+
+        <div class="grid-2 compact-grid">
+          <label>Cell background
+            <input id="cell-format-bg" type="color" value="#ffffff" />
+          </label>
+          <label>Font color
+            <input id="cell-format-color" type="color" value="#1f2a1f" />
+          </label>
+          <label>Cell alignment
+            <select id="cell-format-align">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+          <label>Font style
+            <div class="inline-controls">
+              <label class="checkbox-inline"><input id="cell-format-bold" type="checkbox" /> Bold</label>
+              <label class="checkbox-inline"><input id="cell-format-italic" type="checkbox" /> Italic</label>
+            </div>
+          </label>
+        </div>
+        <p class="hint">Select multiple cells with mouse drag, or hold Shift and use arrow keys. Formatting applies automatically.</p>
+        <div id="table-grid-wrap" class="canvas-wrap"></div>
+        <canvas id="table-canvas" class="hidden-export-canvas" width="1200" height="700" aria-hidden="true"></canvas>
+      </section>
+    </main>
+
+    <script type="module" src="./table-creator.js"></script>
+  </body>
+</html>

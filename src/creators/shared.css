@@ -1,0 +1,257 @@
+:root {
+  --bg: #f7f6f1;
+  --surface: #fffdf8;
+  --ink: #1f2a1f;
+  --muted: #5f6a61;
+  --border: #d4d0c4;
+  --accent: #2f5f4f;
+  --danger: #9e2a2b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 0% 0%, #f9e7c8 0, transparent 40%),
+    radial-gradient(circle at 100% 0%, #d8f0e4 0, transparent 40%),
+    var(--bg);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 253, 248, 0.92);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  padding: 0.8rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.layout {
+  padding: 1rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  box-shadow: 0 6px 16px rgba(47, 95, 79, 0.08);
+  padding: 0.9rem;
+}
+
+h2 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+label {
+  display: grid;
+  gap: 0.24rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.45rem;
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: var(--ink);
+  padding: 0.42rem 0.72rem;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+
+button:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+button.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+}
+
+.hint {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.canvas-wrap {
+  border: 1px dashed var(--border);
+  border-radius: 0.65rem;
+  padding: 0.6rem;
+  background: #fff;
+  overflow: auto;
+}
+
+.preview-canvas {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0.45rem;
+  background: #fff;
+}
+
+.table-input-grid {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.table-input-grid td {
+  border: 1px solid var(--border);
+  padding: 0.2rem;
+  min-width: 120px;
+}
+
+.table-input-grid input {
+  width: 100%;
+  min-width: 110px;
+  border: 1px solid #e7e3d6;
+  border-radius: 0.35rem;
+  padding: 0.35rem;
+  font-size: 0.84rem;
+}
+
+.table-wysiwyg-grid td.selected {
+  outline: 2px solid #2f5f4f;
+  outline-offset: -2px;
+  background: rgba(47, 95, 79, 0.08);
+}
+
+.table-cell-input {
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  min-width: 110px;
+}
+
+.table-cell-input:focus {
+  outline: none;
+  background: #fffef7;
+}
+
+.table-selection {
+  margin-left: auto;
+  align-self: center;
+}
+
+.compact-grid {
+  margin-top: 0.6rem;
+}
+
+.inline-controls {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.table-grid-preview .table-input-grid td {
+  border-color: var(--table-border-color, var(--border));
+}
+
+.table-grid-preview .table-input-grid td {
+  background: var(--table-cell-bg, #ffffff);
+}
+
+.table-grid-preview .table-wysiwyg-grid tbody tr:first-child td {
+  background: var(--table-header-bg, #dff1e8);
+}
+
+.table-grid-preview .table-cell-input {
+  color: var(--table-text-color, #1f2a1f);
+  text-align: var(--table-text-align, left);
+}
+
+.table-grid-preview.no-header .table-wysiwyg-grid tbody tr:first-child td {
+  background: var(--table-cell-bg, #ffffff);
+}
+
+.hidden-export-canvas {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .layout {
+    padding: 0.7rem;
+  }
+
+  .topbar {
+    padding: 0.65rem 0.75rem;
+  }
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Diagram</title>
+    <link rel="stylesheet" href="./shared.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Create Diagram</h1>
+      <p id="status-text" class="status">Choose a chart type and render your data.</p>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Chart Data</h2>
+        <div class="grid-2">
+          <label>Diagram type
+            <select id="diagram-type">
+              <option value="bar">Bar chart</option>
+              <option value="pie">Circle chart</option>
+              <option value="line">Line chart</option>
+            </select>
+          </label>
+          <label>Title
+            <input id="diagram-title" type="text" value="My Diagram" />
+          </label>
+        </div>
+
+        <label>Data (Label,Value per line)
+          <textarea id="diagram-data" placeholder="Apples,40&#10;Bananas,25&#10;Oranges,35"></textarea>
+        </label>
+
+        <div class="actions">
+          <button id="load-diagram-example">Load example</button>
+          <button id="render-diagram" class="primary">Render diagram</button>
+          <button id="save-diagram" class="primary">Save to Image Assets</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Preview</h2>
+        <div class="canvas-wrap">
+          <canvas id="diagram-canvas" class="preview-canvas" width="1200" height="700"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./diagram-creator.js"></script>
+  </body>
+</html>
