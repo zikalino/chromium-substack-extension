@@ -67,10 +67,10 @@
 
       <section class="card">
         <div class="section-header">
-          <h2>Bookmarks</h2>
+          <h2>URLs</h2>
           <div class="section-controls">
             <button class="btn-toggle" title="Collapse section">^</button>
-            <button class="btn-add" data-dialog="dialog-add-bookmark" title="Add bookmark">+</button>
+            <button class="btn-add" data-dialog="dialog-add-bookmark" title="Add URL">+</button>
           </div>
         </div>
         <div class="section-body">
@@ -90,8 +90,7 @@
                 <button data-action="from-url">From URL</button>
                 <hr class="menu-divider" />
                 <button data-action="map">Create Map ↗</button>
-                <button data-action="diagram">Create Diagram ↗</button>
-                <button data-action="diagram-editor">Diagram Editor ↗</button>
+                <button data-action="diagram-editor">Create Diagram ↗</button>
                 <button data-action="graph-tool">Graph Tool ↗</button>
                 <button data-action="table">Create Table ↗</button>
               </div>
@@ -100,23 +99,6 @@
         </div>
         <div class="section-body">
           <div id="image-grid" class="image-grid"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="section-header">
-          <h2>Notes Composer</h2>
-          <div class="section-controls">
-            <button class="btn-toggle" title="Collapse section">^</button>
-          </div>
-        </div>
-        <div class="section-body">
-          <textarea id="notes-draft" rows="8" placeholder="Compose notes and insert citations/images"></textarea>
-          <div class="actions row">
-            <button id="save-notes">Save notes</button>
-            <button id="insert-latest-citation">Insert latest citation</button>
-            <button id="insert-latest-image">Insert latest image link</button>
-          </div>
         </div>
       </section>
 
@@ -161,7 +143,7 @@
 
     <dialog id="dialog-add-bookmark">
       <div class="dialog-header">
-        <h3>Add Bookmark</h3>
+        <h3>Add URL</h3>
         <button class="btn-dialog-close">✕</button>
       </div>
       <div class="dialog-body">
@@ -173,7 +155,7 @@
         </label>
       </div>
       <div class="dialog-footer">
-        <button id="save-bookmark">Save bookmark</button>
+        <button id="save-bookmark">Save URL</button>
         <button class="btn-dialog-cancel">Cancel</button>
       </div>
     </dialog>

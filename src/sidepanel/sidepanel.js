@@ -4,8 +4,7 @@ const state = {
   publications: [],
   citations: [],
   bookmarks: [],
-  imageAssets: [],
-  notesDraft: ""
+  imageAssets: []
 };
 
 const selectedImageIds = new Set();
@@ -34,7 +33,6 @@ const els = {
   bookmarkList: document.querySelector("#bookmark-list"),
   imageUrl: document.querySelector("#image-url"),
   imageGrid: document.querySelector("#image-grid"),
-  notesDraft: document.querySelector("#notes-draft"),
   planMenu: document.querySelector("#plan-menu"),
   planButton: document.querySelector("#plan-button"),
   planSubmenu: document.querySelector("#plan-submenu"),
@@ -119,7 +117,7 @@ function bindActions() {
     const pageUrl = els.bookmarkUrl.value.trim();
     const title = els.bookmarkTitle.value.trim() || "Manual bookmark";
     if (!pageUrl) {
-      return setStatus("Bookmark URL is required.", true);
+      return setStatus("URL is required.", true);
     }
 
     try {
@@ -132,7 +130,7 @@ function bindActions() {
       els.bookmarkTitle.value = "";
       document.querySelector("#dialog-add-bookmark")?.close();
       renderBookmarks();
-      setStatus("Bookmark saved.");
+      setStatus("URL saved.");
     } catch (error) {
       setStatus(error.message, true);
     }
@@ -158,34 +156,6 @@ function bindActions() {
     } catch (error) {
       setStatus(error.message, true);
     }
-  });
-
-  document.querySelector("#save-notes").addEventListener("click", async () => {
-    await sendMessage({
-      type: "sidepanel:save-notes",
-      payload: { notes: els.notesDraft.value }
-    });
-    setStatus("Notes saved.");
-  });
-
-  document.querySelector("#insert-latest-citation").addEventListener("click", () => {
-    const latest = state.citations[0];
-    if (!latest) {
-      return setStatus("No citation to insert yet.", true);
-    }
-
-    const snippet = `\n> ${latest.text}\nSource: ${latest.pageUrl || "N/A"}\n`;
-    insertIntoNotes(snippet);
-  });
-
-  document.querySelector("#insert-latest-image").addEventListener("click", () => {
-    const latest = state.imageAssets[0];
-    if (!latest) {
-      return setStatus("No image to insert yet.", true);
-    }
-
-    const snippet = `\n![image](${latest.dataUrl || latest.sourceUrl})\n`;
-    insertIntoNotes(snippet);
   });
 }
 
@@ -289,7 +259,6 @@ function renderAll() {
   renderCitations();
   renderBookmarks();
   renderImages();
-  els.notesDraft.value = state.notesDraft || "";
 
   const profileName = state.userProfile?.name || "No Substack profile captured yet";
   setStatus(profileName);
@@ -363,7 +332,7 @@ function renderCitations() {
 
 function renderBookmarks() {
   if (!state.bookmarks.length) {
-    els.bookmarkList.innerHTML = `<li class="list-item">No bookmarks saved yet.</li>`;
+    els.bookmarkList.innerHTML = `<li class="list-item">No URLs saved yet.</li>`;
     return;
   }
 
@@ -376,7 +345,7 @@ function renderBookmarks() {
             <button class="btn-insert" data-type="bookmark" data-url="${escapeHtml(item.pageUrl || "")}" title="Insert into editor">«</button>
             <button class="btn-trash" data-delete="bookmark" data-id="${item.id}" title="Delete">🗑️</button>
           </div>
-          <p>${escapeHtml(item.title || "Bookmark")}</p>
+          <p>${escapeHtml(item.title || "URL")}</p>
           <p><a href="${escapeHtml(item.pageUrl || "#")}" target="_blank" rel="noreferrer">${escapeHtml(item.pageUrl || "")}</a></p>
         </li>
       `
@@ -534,12 +503,6 @@ function bindDeleteButtons() {
   });
 }
 
-function insertIntoNotes(snippet) {
-  const cursor = els.notesDraft.selectionStart ?? els.notesDraft.value.length;
-  const text = els.notesDraft.value;
-  els.notesDraft.value = `${text.slice(0, cursor)}${snippet}${text.slice(cursor)}`;
-}
-
 function setStatus(text, isError = false) {
   els.statusText.textContent = text;
   els.statusText.style.color = isError ? "#9e2a2b" : "#6b7567";
@@ -685,7 +648,6 @@ function bindImageAddMenu() {
 
     const creatorMap = {
       "map":             { url: "src/creators/map-creator.html",    width: 980,  height: 760 },
-      "diagram":         { url: "src/creators/diagram-creator.html", width: 980,  height: 760 },
       "diagram-editor":  { url: "src/creators/diagram-editor.html",  width: 1200, height: 840 },
       "graph-tool":      { url: "src/creators/graph-tool.html",      width: 1320, height: 860 },
       "table":           { url: "src/creators/table-creator.html",   width: 980,  height: 760 },
