@@ -2,6 +2,7 @@ import { getAssetIdFromQuery, getImageAssetById, saveCanvasAsImage, setStatus } 
 
 const MAX_ROWS = 10;
 const MAX_COLS = 6;
+const DEFAULT_ROW_COLORS = ["#f23b5e", "#e88f8b", "#e3bb95", "#b3b690", "#79a894", "#6f8ec9", "#a87dc0", "#f2a65a", "#5fb8a1"];
 
 const els = {
   statusText: document.querySelector("#status-text"),
@@ -34,6 +35,7 @@ const state = {
   rows: 6,
   cols: 3,
   seriesColumn: "1",
+  rowColors: ["", "#f23b5e", "#e88f8b", "#e3bb95", "#b3b690", "#79a894"],
   grid: [
     ["Label", "item1", "item2"],
     ["Item1", "10", "20"],
@@ -49,6 +51,7 @@ void init();
 
 async function init() {
   await restoreSavedGraph();
+  ensureRowColors();
   renderTable();
   applyChartTabSelection();
   renderChart();
@@ -81,6 +84,7 @@ function bindActions() {
     }
     const newRow = Array.from({ length: state.cols }, (_, i) => (i === 0 ? `Item${state.rows}` : "0"));
     state.grid.push(newRow);
+    state.rowColors.push(DEFAULT_ROW_COLORS[(state.rows - 1) % DEFAULT_ROW_COLORS.length]);
     state.rows += 1;
     renderTable();
   });
@@ -152,6 +156,7 @@ async function restoreSavedGraph() {
   state.cols = Number(saved.cols) || state.cols;
   state.grid = Array.isArray(saved.grid) ? saved.grid.map((row) => Array.isArray(row) ? row.map((cell) => String(cell || "")) : []) : state.grid;
   state.seriesColumn = saved.seriesColumn || state.seriesColumn;
+  state.rowColors = Array.isArray(saved.rowColors) ? saved.rowColors.map((color) => normalizeHexColor(color, "")) : state.rowColors;
   els.chartTitle.value = saved.title || els.chartTitle.value;
   els.primaryColor.value = saved.primaryColor || els.primaryColor.value;
   els.secondaryColor.value = saved.secondaryColor || els.secondaryColor.value;
@@ -165,6 +170,7 @@ function collectGraphState() {
     rows: state.rows,
     cols: state.cols,
     seriesColumn: els.seriesColumn.value || state.seriesColumn || "1",
+    rowColors: state.rowColors,
     grid: state.grid,
     title: els.chartTitle.value,
     primaryColor: els.primaryColor.value,
@@ -182,14 +188,19 @@ function applyChartTabSelection() {
 
 function renderTable() {
   const letters = ["A", "B", "C", "D", "E", "F", "G"];
-  let html = "<thead><tr><th></th>";
+  ensureRowColors();
+  let html = "<thead><tr><th class=\"color-col\">Clr</th><th></th>";
   for (let c = 0; c < state.cols; c += 1) {
     html += `<th>${letters[c] || c + 1}</th>`;
   }
   html += "</tr></thead><tbody>";
 
   for (let r = 0; r < state.rows; r += 1) {
-    html += `<tr><th>${r + 1}</th>`;
+    const rowColor = normalizeHexColor(state.rowColors[r], DEFAULT_ROW_COLORS[(Math.max(r, 1) - 1) % DEFAULT_ROW_COLORS.length]);
+    const colorCell = r === 0
+      ? "<td class=\"color-cell color-cell-header\">-</td>"
+      : `<td class=\"color-cell\"><input class=\"row-color-input\" type=\"color\" data-row-color=\"${r}\" value=\"${rowColor}\" aria-label=\"Color for row ${r}\" /></td>`;
+    html += `<tr>${colorCell}<th>${r + 1}</th>`;
     for (let c = 0; c < state.cols; c += 1) {
       const value = escapeHtml(state.grid[r]?.[c] || "");
       html += `<td><input data-r="${r}" data-c="${c}" value="${value}" /></td>`;
@@ -199,6 +210,16 @@ function renderTable() {
 
   html += "</tbody>";
   els.dataTable.innerHTML = html;
+  els.dataTable.querySelectorAll("input[data-row-color]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const rowIndex = Number(input.getAttribute("data-row-color"));
+      if (!Number.isFinite(rowIndex) || rowIndex <= 0 || rowIndex >= state.rows) {
+        return;
+      }
+      state.rowColors[rowIndex] = normalizeHexColor(input.value, DEFAULT_ROW_COLORS[(rowIndex - 1) % DEFAULT_ROW_COLORS.length]);
+      renderChart();
+    });
+  });
 
   updateSeriesOptions();
 }
@@ -241,6 +262,7 @@ function importCsvToGrid(csv) {
   state.grid = Array.from({ length: rows }, (_, r) =>
     Array.from({ length: cols }, (_, c) => parsed[r]?.[c] || "")
   );
+  state.rowColors = Array.from({ length: rows }, (_, r) => (r === 0 ? "" : DEFAULT_ROW_COLORS[(r - 1) % DEFAULT_ROW_COLORS.length]));
 
   setStatus(els.statusText, "CSV imported.");
 }
@@ -249,6 +271,7 @@ function getSeriesData() {
   const seriesCol = Math.max(1, Number(els.seriesColumn.value || 1));
   const labels = [];
   const values = [];
+  const colors = [];
 
   for (let r = 1; r < state.rows; r += 1) {
     const label = (state.grid[r]?.[0] || "").trim();
@@ -259,14 +282,15 @@ function getSeriesData() {
     }
     labels.push(label);
     values.push(Number.isFinite(value) ? value : 0);
+    colors.push(normalizeHexColor(state.rowColors[r], DEFAULT_ROW_COLORS[(r - 1) % DEFAULT_ROW_COLORS.length]));
   }
 
-  return { labels, values, seriesCol };
+  return { labels, values, colors, seriesCol };
 }
 
 function renderChart() {
   readGridInputs();
-  const { labels, values } = getSeriesData();
+  const { labels, values, colors } = getSeriesData();
   if (!labels.length) {
     setStatus(els.statusText, "Add data rows to render a chart.", true);
     clearCanvas();
@@ -279,17 +303,17 @@ function renderChart() {
 
   const type = state.chartType;
   if (type === "line") {
-    drawLineChart(labels, values);
+    drawLineChart(labels, values, colors);
   } else if (type === "area") {
-    drawAreaChart(labels, values);
+    drawAreaChart(labels, values, colors);
   } else if (type === "pie") {
-    drawPieChart(labels, values, false);
+    drawPieChart(labels, values, colors, false);
   } else if (type === "doughnut") {
-    drawPieChart(labels, values, true);
+    drawPieChart(labels, values, colors, true);
   } else if (type === "half-doughnut") {
-    drawHalfDoughnut(labels, values);
+    drawHalfDoughnut(labels, values, colors);
   } else {
-    drawBarChart(labels, values);
+    drawBarChart(labels, values, colors);
   }
 
   setStatus(els.statusText, `Rendered ${type} chart with ${labels.length} points.`);
@@ -321,7 +345,7 @@ function drawTitle(title) {
   ctx.fillText(title, (els.canvas.width - w) / 2, 72);
 }
 
-function drawBarChart(labels, values) {
+function drawBarChart(labels, values, colors) {
   const maxValue = Math.max(...values, 1);
   const left = 120;
   const right = 860;
@@ -339,7 +363,7 @@ function drawBarChart(labels, values) {
     const h = (values[i] / maxValue) * height;
     const y = bottom - h;
 
-    ctx.fillStyle = els.primaryColor.value;
+    ctx.fillStyle = colors[i] || els.primaryColor.value;
     ctx.fillRect(x, y, barWidth, h);
 
     if (els.showValues.value === "yes") {
@@ -357,7 +381,7 @@ function drawBarChart(labels, values) {
   });
 }
 
-function drawLineChart(labels, values) {
+function drawLineChart(labels, values, colors) {
   const maxValue = Math.max(...values, 1);
   const left = 120;
   const right = 860;
@@ -369,7 +393,7 @@ function drawLineChart(labels, values) {
 
   drawAxes(left, top, right, bottom);
 
-  ctx.strokeStyle = els.primaryColor.value;
+  ctx.strokeStyle = colors[0] || els.primaryColor.value;
   ctx.lineWidth = 5;
   ctx.beginPath();
 
@@ -385,7 +409,7 @@ function drawLineChart(labels, values) {
     const x = left + i * stepX;
     const y = bottom - (value / maxValue) * height;
 
-    ctx.fillStyle = els.secondaryColor.value;
+    ctx.fillStyle = colors[i] || els.secondaryColor.value;
     ctx.beginPath();
     ctx.arc(x, y, 8, 0, Math.PI * 2);
     ctx.fill();
@@ -404,7 +428,7 @@ function drawLineChart(labels, values) {
   });
 }
 
-function drawAreaChart(labels, values) {
+function drawAreaChart(labels, values, colors) {
   const maxValue = Math.max(...values, 1);
   const left = 120;
   const right = 860;
@@ -417,8 +441,9 @@ function drawAreaChart(labels, values) {
   drawAxes(left, top, right, bottom);
 
   const gradient = ctx.createLinearGradient(0, top, 0, bottom);
-  gradient.addColorStop(0, `${els.primaryColor.value}cc`);
-  gradient.addColorStop(1, `${els.primaryColor.value}22`);
+  const lead = colors[0] || els.primaryColor.value;
+  gradient.addColorStop(0, `${lead}cc`);
+  gradient.addColorStop(1, `${lead}22`);
 
   ctx.beginPath();
   values.forEach((value, i) => {
@@ -433,7 +458,7 @@ function drawAreaChart(labels, values) {
   ctx.fillStyle = gradient;
   ctx.fill();
 
-  ctx.strokeStyle = els.primaryColor.value;
+  ctx.strokeStyle = lead;
   ctx.lineWidth = 4;
   ctx.beginPath();
   values.forEach((value, i) => {
@@ -453,7 +478,7 @@ function drawAreaChart(labels, values) {
   });
 }
 
-function drawPieChart(labels, values, doughnut) {
+function drawPieChart(labels, values, colors, doughnut) {
   const total = values.reduce((sum, value) => sum + Math.max(value, 0), 0);
   if (total <= 0) {
     setStatus(els.statusText, "Pie chart needs positive values.", true);
@@ -469,7 +494,7 @@ function drawPieChart(labels, values, doughnut) {
     const slice = (Math.max(value, 0) / total) * Math.PI * 2;
     const end = start + slice;
 
-    ctx.fillStyle = i % 2 === 0 ? els.primaryColor.value : shiftColor(els.secondaryColor.value, i * 8);
+    ctx.fillStyle = colors[i] || els.primaryColor.value;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
@@ -497,10 +522,10 @@ function drawPieChart(labels, values, doughnut) {
     ctx.fill();
   }
 
-  drawLegend(labels, values, 680, 210);
+  drawLegend(labels, values, colors, 680, 210);
 }
 
-function drawHalfDoughnut(labels, values) {
+function drawHalfDoughnut(labels, values, colors) {
   const total = values.reduce((sum, value) => sum + Math.max(value, 0), 0);
   if (total <= 0) {
     setStatus(els.statusText, "Half doughnut needs positive values.", true);
@@ -516,7 +541,7 @@ function drawHalfDoughnut(labels, values) {
     const slice = (Math.max(value, 0) / total) * Math.PI;
     const end = start + slice;
 
-    ctx.fillStyle = i % 2 === 0 ? els.primaryColor.value : shiftColor(els.secondaryColor.value, i * 10);
+    ctx.fillStyle = colors[i] || els.primaryColor.value;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, start, end);
@@ -530,18 +555,38 @@ function drawHalfDoughnut(labels, values) {
   ctx.arc(cx, cy, radius * 0.58, Math.PI, Math.PI * 2);
   ctx.fill();
 
-  drawLegend(labels, values, 680, 200);
+  drawLegend(labels, values, colors, 680, 200);
 }
 
-function drawLegend(labels, values, x, y) {
+function drawLegend(labels, values, colors, x, y) {
   labels.forEach((label, i) => {
     const yy = y + i * 34;
-    ctx.fillStyle = i % 2 === 0 ? els.primaryColor.value : shiftColor(els.secondaryColor.value, i * 10);
+    ctx.fillStyle = colors[i] || els.primaryColor.value;
     ctx.fillRect(x, yy - 15, 18, 18);
     ctx.fillStyle = "#111827";
     ctx.font = "500 20px 'IBM Plex Sans', 'Segoe UI', sans-serif";
     ctx.fillText(`${label} (${values[i]})`, x + 28, yy);
   });
+}
+
+function ensureRowColors() {
+  if (!Array.isArray(state.rowColors)) {
+    state.rowColors = [];
+  }
+  state.rowColors = Array.from({ length: state.rows }, (_, r) => {
+    if (r === 0) {
+      return "";
+    }
+    return normalizeHexColor(state.rowColors[r], DEFAULT_ROW_COLORS[(r - 1) % DEFAULT_ROW_COLORS.length]);
+  });
+}
+
+function normalizeHexColor(value, fallback) {
+  const text = String(value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(text)) {
+    return text.toLowerCase();
+  }
+  return fallback;
 }
 
 function drawAxes(left, top, right, bottom) {
@@ -552,15 +597,6 @@ function drawAxes(left, top, right, bottom) {
   ctx.lineTo(left, bottom);
   ctx.lineTo(right, bottom);
   ctx.stroke();
-}
-
-function shiftColor(hex, amount) {
-  const normalized = hex.replace("#", "");
-  const num = parseInt(normalized, 16);
-  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00ff) + amount));
-  const b = Math.min(255, Math.max(0, (num & 0x0000ff) + amount));
-  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
 }
 
 function escapeHtml(value) {

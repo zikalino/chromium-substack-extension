@@ -119,6 +119,42 @@ body {
   padding: 0.2rem;
 }
 
+.data-grid .color-col {
+  min-width: 56px;
+  width: 56px;
+}
+
+.data-grid .color-cell {
+  min-width: 56px;
+  width: 56px;
+  text-align: center;
+  background: #f4f6fb;
+}
+
+.data-grid .color-cell-header {
+  color: #7a849a;
+  font-weight: 600;
+}
+
+.row-color-input {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #bcc5da;
+  border-radius: 0.35rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.row-color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.row-color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 0.22rem;
+}
+
 .data-grid th {
   background: #f2f4f9;
   text-align: center;
