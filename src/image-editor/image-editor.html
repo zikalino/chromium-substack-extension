@@ -14,13 +14,87 @@
 
     <main class="layout">
       <section class="card">
-        <div class="inline-form">
-          <select id="editor-image-select" title="Select image"></select>
-          <button id="load-image">Load image</button>
-          <button id="refresh-images">Refresh images</button>
+        <div class="toolbar-strip">
+          <div class="tool-group tool-buttons" aria-label="Drawing tools">
+            <button type="button" class="tool-button" data-tool="select" title="Select" aria-label="Select"></button>
+            <button type="button" class="tool-button" data-tool="move" title="Move" aria-label="Move"></button>
+            <button type="button" class="tool-button active" data-tool="brush" title="Brush" aria-label="Brush"></button>
+            <button type="button" class="tool-button" data-tool="eraser" title="Eraser" aria-label="Eraser"></button>
+            <button type="button" class="tool-button" data-tool="spray" title="Spray" aria-label="Spray"></button>
+            <button type="button" class="tool-button" data-tool="fill" title="Fill" aria-label="Fill"></button>
+            <button type="button" class="tool-button" data-tool="eyedropper" title="Eyedropper" aria-label="Eyedropper"></button>
+            <button type="button" class="tool-button" data-tool="line" title="Line" aria-label="Line"></button>
+            <button type="button" class="tool-button" data-tool="rectangle" title="Rectangle" aria-label="Rectangle"></button>
+            <button type="button" class="tool-button" data-tool="ellipse" title="Ellipse" aria-label="Ellipse"></button>
+            <button type="button" class="tool-button" data-tool="text" title="Text" aria-label="Text"></button>
+          </div>
+          <div class="tool-group color-controls">
+            <label>Primary <input id="primary-color" type="color" value="#1f1f1f" /></label>
+            <label>Background <input id="secondary-color" type="color" value="#ffffff" /></label>
+            <label>Size <input id="brush-size" type="range" min="1" max="80" value="6" /></label>
+            <span id="brush-size-label" class="range-value">6 px</span>
+            <label class="check-option"><input id="fill-shape" type="checkbox" /> Fill shape</label>
+          </div>
+          <div class="tool-group utility-buttons">
+            <button id="undo-edit">Undo</button>
+            <button id="redo-edit">Redo</button>
+            <button id="clear-canvas">Clear</button>
+            <button id="apply-background">Fill background</button>
+          </div>
         </div>
 
-        <canvas id="editor-canvas" width="640" height="360"></canvas>
+        <div class="workspace-grid">
+          <div>
+            <div class="canvas-shell">
+              <canvas id="editor-canvas" width="640" height="360"></canvas>
+            </div>
+
+            <div class="canvas-status-row">
+              <span id="active-tool-label">Tool: Brush</span>
+              <span id="canvas-size-label">Canvas: 640 x 360</span>
+              <span id="pointer-position">Pointer: -, -</span>
+            </div>
+          </div>
+
+          <aside class="inspector-panel">
+            <section class="inspector-block">
+              <h2>Layers</h2>
+              <div id="layer-list" class="layer-list"></div>
+              <div class="mini-controls">
+                <button id="merge-overlay">Merge Overlay</button>
+                <button id="clear-active-layer">Clear Active Layer</button>
+              </div>
+            </section>
+
+            <section class="inspector-block">
+              <h2>Selection</h2>
+              <div class="selection-grid">
+                <label>X <input id="selection-x" type="number" value="0" readonly /></label>
+                <label>Y <input id="selection-y" type="number" value="0" readonly /></label>
+                <label>W <input id="selection-w" type="number" value="0" readonly /></label>
+                <label>H <input id="selection-h" type="number" value="0" readonly /></label>
+              </div>
+              <div class="mini-controls">
+                <button id="commit-selection">Commit Selection</button>
+                <button id="clear-selection">Clear Selection</button>
+              </div>
+            </section>
+
+            <section class="inspector-block">
+              <h2>Transform</h2>
+              <div class="selection-grid">
+                <label>Scale % <input id="transform-scale" type="number" min="10" max="400" value="100" /></label>
+              </div>
+              <div class="mini-controls transform-grid">
+                <button id="apply-scale">Apply Scale</button>
+                <button id="rotate-left">Rotate Left</button>
+                <button id="rotate-right">Rotate Right</button>
+                <button id="flip-horizontal">Flip Horizontal</button>
+                <button id="flip-vertical">Flip Vertical</button>
+              </div>
+            </section>
+          </aside>
+        </div>
 
         <div class="editor-controls">
           <label>X <input id="crop-x" type="number" min="0" value="0" /></label>
@@ -33,17 +107,12 @@
         <div class="editor-controls">
           <label>Resize W <input id="resize-w" type="number" min="1" value="640" /></label>
           <label>Resize H <input id="resize-h" type="number" min="1" value="360" /></label>
+          <label>Text <input id="text-input" type="text" value="Label" /></label>
           <button id="resize-image">Resize</button>
-          <button id="create-collage">Create collage from selected</button>
           <button id="save-edited-image">Save edited image</button>
         </div>
 
-        <p class="helper">Use Ctrl/Cmd + Click on image cards to select images for collage.</p>
-      </section>
-
-      <section class="card">
-        <h2>Image Assets</h2>
-        <div id="image-grid" class="image-grid"></div>
+        <p class="helper">Use the toolbar to draw directly on the canvas. Click with the text tool to place text.</p>
       </section>
     </main>
 

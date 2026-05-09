@@ -437,20 +437,18 @@ function openAssetEditor(asset) {
     return;
   }
 
-  const popupUrl = new URL(chrome.runtime.getURL(editorPath));
-  popupUrl.searchParams.set("assetId", asset.id);
+  const tabUrl = new URL(chrome.runtime.getURL(editorPath));
+  tabUrl.searchParams.set("assetId", asset.id);
 
-  const bounds = getEditorWindowBounds(editorPath);
-  chrome.windows.create({
-    url: popupUrl.toString(),
-    type: "popup",
-    width: bounds.width,
-    height: bounds.height
+  chrome.tabs.create({
+    url: tabUrl.toString()
   });
 }
 
 function fallbackEditorPath(asset) {
-  if ((asset.assetType || "") === "image") {
+  const type = String(asset?.assetType || "").toLowerCase();
+  const hasImagePayload = Boolean(asset?.sourceUrl || asset?.dataUrl);
+  if (type === "image" || hasImagePayload) {
     return "src/image-editor/image-editor.html";
   }
 
@@ -647,14 +645,14 @@ function bindImageAddMenu() {
     }
 
     const creatorMap = {
-      "map":             { url: "src/creators/map-creator.html",    width: 980,  height: 760 },
-      "diagram-editor":  { url: "src/creators/diagram-editor.html",  width: 1200, height: 840 },
-      "graph-tool":      { url: "src/creators/graph-tool.html",      width: 1320, height: 860 },
-      "table":           { url: "src/creators/table-creator.html",   width: 980,  height: 760 },
+      "map":             { url: "src/creators/map-creator.html" },
+      "diagram-editor":  { url: "src/creators/diagram-editor.html" },
+      "graph-tool":      { url: "src/creators/graph-tool.html" },
+      "table":           { url: "src/creators/table-creator.html" },
     };
     const creator = creatorMap[action];
     if (creator) {
-      chrome.windows.create({ url: chrome.runtime.getURL(creator.url), type: "popup", width: creator.width, height: creator.height });
+      chrome.tabs.create({ url: chrome.runtime.getURL(creator.url) });
     }
   });
 
