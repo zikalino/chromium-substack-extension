@@ -60,12 +60,15 @@
 
       <section class="card">
         <h2>Cell Editor</h2>
-        <div class="actions">
-          <button id="add-table-row">Add row</button>
-          <button id="add-table-col">Add column</button>
-          <button id="remove-table-row">Remove row</button>
-          <button id="remove-table-col">Remove column</button>
+        <div class="cell-editor-topbar">
           <span id="table-selection" class="hint table-selection">No cell selected</span>
+          <button id="table-tools-toggle" class="corner-tools-button hidden" type="button" aria-haspopup="true" aria-expanded="false" title="Selection tools" aria-label="Selection tools">⋮</button>
+          <div id="table-tools-menu" class="table-tools-menu hidden" aria-label="Table selection tools">
+            <button id="add-table-row" type="button">Add row</button>
+            <button id="add-table-col" type="button">Add column</button>
+            <button id="remove-table-row" type="button">Remove row</button>
+            <button id="remove-table-col" type="button">Remove column</button>
+          </div>
         </div>
 
         <div class="grid-2 compact-grid">

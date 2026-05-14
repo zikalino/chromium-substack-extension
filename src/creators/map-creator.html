@@ -5,6 +5,368 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Create Map</title>
     <link rel="stylesheet" href="./shared.css" />
+    <style>
+      .cities-table-wrapper {
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: visible;
+        background: var(--surface);
+      }
+
+      .cities-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .cities-table thead {
+        background: rgba(47, 95, 79, 0.08);
+      }
+
+      .cities-table th {
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--ink);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .cities-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .cities-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .cities-table input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .cities-table input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(47, 95, 79, 0.1);
+      }
+
+      .city-input-cell {
+        position: relative;
+      }
+
+      .city-input-cell.autocomplete-open {
+        z-index: 5;
+      }
+
+      .city-autocomplete {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 3px 3px;
+        max-height: 150px;
+        overflow-y: auto;
+        z-index: 200;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .city-autocomplete.open-up {
+        top: auto;
+        bottom: 100%;
+        border-top: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 3px 3px 0 0;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .city-autocomplete-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(212, 208, 196, 0.5);
+        font-size: 13px;
+      }
+
+      .city-autocomplete-item:hover,
+      .city-autocomplete-item.selected {
+        background: rgba(47, 95, 79, 0.1);
+      }
+
+      .city-autocomplete-item:last-child {
+        border-bottom: none;
+      }
+
+      .city-remove-btn {
+        background: none;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+        padding: 4px 8px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1;
+      }
+
+      .city-remove-btn:hover {
+        opacity: 0.7;
+      }
+
+      .city-connections-cell {
+        min-width: 220px;
+      }
+
+      .connections-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .connection-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        position: relative;
+      }
+
+      .connection-input-wrap {
+        flex: 1;
+        position: relative;
+      }
+
+      .connection-row input {
+        flex: 1;
+      }
+
+      .connection-row.autocomplete-open {
+        z-index: 5;
+      }
+
+      .connection-autocomplete {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 3px 3px;
+        max-height: 140px;
+        overflow-y: auto;
+        z-index: 220;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .connection-autocomplete.open-up {
+        top: auto;
+        bottom: 100%;
+        border-top: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 3px 3px 0 0;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .connection-autocomplete-item {
+        padding: 7px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(212, 208, 196, 0.5);
+        font-size: 12px;
+      }
+
+      .connection-autocomplete-item:hover {
+        background: rgba(47, 95, 79, 0.1);
+      }
+
+      .connection-autocomplete-item:last-child {
+        border-bottom: none;
+      }
+
+      .connection-remove-btn {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--danger);
+        border-radius: 3px;
+        cursor: pointer;
+        width: 24px;
+        height: 24px;
+        line-height: 1;
+      }
+
+      .connection-add-btn {
+        border: 1px dashed var(--border);
+        background: #fff;
+        color: var(--accent);
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px 8px;
+        width: fit-content;
+      }
+
+      #add-city-row {
+        margin-top: 8px;
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+
+      .regions-table-wrapper {
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: visible;
+        background: var(--surface);
+        margin-top: 4px;
+      }
+
+      .regions-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .regions-table thead {
+        background: rgba(47, 95, 79, 0.08);
+      }
+
+      .regions-table th {
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--ink);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .regions-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+
+      .regions-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .region-input-cell {
+        position: relative;
+        min-width: 260px;
+      }
+
+      .region-input-cell input {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .region-input-cell input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(47, 95, 79, 0.1);
+      }
+
+      .region-input-cell.autocomplete-open {
+        z-index: 5;
+      }
+
+      .region-autocomplete {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 3px 3px;
+        max-height: 160px;
+        overflow-y: auto;
+        z-index: 220;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      }
+
+      .region-autocomplete.open-up {
+        top: auto;
+        bottom: 100%;
+        border-top: 1px solid var(--border);
+        border-bottom: none;
+        border-radius: 3px 3px 0 0;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .region-autocomplete-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(212, 208, 196, 0.5);
+        font-size: 12px;
+        line-height: 1.3;
+      }
+
+      .region-autocomplete-item small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .region-autocomplete-item:hover {
+        background: rgba(47, 95, 79, 0.1);
+      }
+
+      .region-autocomplete-item:last-child {
+        border-bottom: none;
+      }
+
+      .region-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .region-color-input {
+        width: 36px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        cursor: pointer;
+        background: none;
+      }
+
+      .region-width-input {
+        width: 52px;
+        padding: 5px 6px;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+
+      .region-remove-btn {
+        background: none;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+        padding: 4px 8px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1;
+      }
+
+      .region-remove-btn:hover {
+        opacity: 0.7;
+      }
+
+      #add-region-row {
+        margin-top: 8px;
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+    </style>
   </head>
   <body>
     <header class="topbar">
@@ -27,12 +389,24 @@
           </label>
         </div>
 
-        <div class="grid-2">
-          <label>Cities (one per line)
-            <textarea id="city-lines" placeholder="Prague&#10;Berlin&#10;Vienna"></textarea>
-          </label>
-          <label>Connections (A-B, one per line)
-            <textarea id="connection-lines" placeholder="Prague-Berlin&#10;Berlin-Vienna&#10;Prague-Vienna"></textarea>
+        <div>
+          <label>Cities
+            <div id="cities-table-wrapper" class="cities-table-wrapper">
+              <table class="cities-table">
+                <thead>
+                  <tr>
+                    <th>City (Search)</th>
+                    <th>Display Name</th>
+                    <th>Connections</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="cities-table-body">
+                  <!-- Rows added dynamically -->
+                </tbody>
+              </table>
+            </div>
+            <button id="add-city-row" type="button">+ Add City</button>
           </label>
         </div>
 
@@ -48,8 +422,28 @@
           </label>
         </div>
 
-        <p class="hint">Tip: in geocoded mode, city order defines route order if no explicit connections are provided.</p>
+        <p class="hint">Tip: add connections per city in the table (one city name per connection field). For ambiguous city names, search and pick from the dropdown (e.g., "TengChong, Yunnan, China").</p>
         <p id="geocode-results" class="hint"></p>
+
+        <div>
+          <label>Highlight Regions (Province / Country borders)
+            <div class="regions-table-wrapper">
+              <table class="regions-table">
+                <thead>
+                  <tr>
+                    <th>Region (Search)</th>
+                    <th>Color &amp; Width</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="regions-table-body">
+                  <!-- Rows added dynamically -->
+                </tbody>
+              </table>
+            </div>
+            <button id="add-region-row" type="button">+ Add Region</button>
+          </label>
+        </div>
 
         <div class="actions">
           <button id="load-example">Load example</button>

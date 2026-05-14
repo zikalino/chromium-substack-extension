@@ -136,6 +136,16 @@ function bindActions() {
     }
   });
 
+  document.querySelector("#add-bookmark-from-active")?.addEventListener("click", async () => {
+    setStatus("Capturing active page details...");
+    try {
+      await sendMessage({ type: "sidepanel:create-bookmark-draft-from-active" });
+      setStatus("Opened URL capture form.");
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+  });
+
   document.querySelector("#save-image").addEventListener("click", async () => {
     const sourceUrl = els.imageUrl.value.trim();
     if (!sourceUrl) {
@@ -207,13 +217,20 @@ function bindPlanMenu() {
 
 function bindStorageRefresh() {
   chrome.storage.onChanged.addListener(async (changes, areaName) => {
-    if (areaName !== "local" || !changes.imageAssets) {
+    if (areaName !== "local") {
       return;
     }
 
-    await refreshState();
-    renderImages();
-    setStatus("Image assets refreshed.");
+    if (changes.imageAssets || changes.bookmarks) {
+      await refreshState();
+      if (changes.imageAssets) {
+        renderImages();
+      }
+      if (changes.bookmarks) {
+        renderBookmarks();
+      }
+      setStatus("Sidepanel data refreshed.");
+    }
   });
 }
 
@@ -340,13 +357,14 @@ function renderBookmarks() {
     .slice(0, 50)
     .map(
       (item) => `
-        <li class="list-item" draggable="true" data-type="bookmark" data-url="${escapeHtml(item.pageUrl || "")}">
+        <li class="list-item" draggable="true" data-type="bookmark" data-id="${escapeHtml(item.id || "")}" data-url="${escapeHtml(item.pageUrl || "")}" data-title="${escapeHtml(item.title || "")}" data-image-urls="${escapeHtml(encodeURIComponent(JSON.stringify(Array.isArray(item.imageUrls) ? item.imageUrls : [])))}">
           <div class="item-header">
-            <button class="btn-insert" data-type="bookmark" data-url="${escapeHtml(item.pageUrl || "")}" title="Insert into editor">«</button>
+            <button class="btn-insert" data-type="bookmark" data-id="${escapeHtml(item.id || "")}" title="Insert into editor">«</button>
             <button class="btn-trash" data-delete="bookmark" data-id="${item.id}" title="Delete">🗑️</button>
           </div>
           <p>${escapeHtml(item.title || "URL")}</p>
           <p><a href="${escapeHtml(item.pageUrl || "#")}" target="_blank" rel="noreferrer">${escapeHtml(item.pageUrl || "")}</a></p>
+          <p class="bookmark-meta">Images: ${Array.isArray(item.imageUrls) ? item.imageUrls.length : 0}${item.screenshotDataUrl ? " • screenshot" : ""}</p>
         </li>
       `
     )
@@ -370,8 +388,9 @@ function renderImages() {
       const src = asset.dataUrl || asset.sourceUrl;
       const editorPath = asset.editor?.path || "";
       const assetType = asset.assetType || "image";
+      const title = asset.title || "image";
       return `
-        <article class="image-card ${selectedClass}" data-id="${asset.id}" data-editor-path="${escapeHtml(editorPath)}" data-asset-type="${escapeHtml(assetType)}" draggable="true" data-type="image" data-src="${escapeHtml(src)}">
+        <article class="image-card ${selectedClass}" data-id="${asset.id}" data-editor-path="${escapeHtml(editorPath)}" data-asset-type="${escapeHtml(assetType)}" draggable="true" data-type="image" data-src="${escapeHtml(src)}" data-title="${escapeHtml(title)}">
           <div class="image-card-controls">
             <button class="btn-insert-image" data-type="image" data-src="${escapeHtml(src)}" title="Insert into editor">«</button>
             <button class="btn-trash" data-delete="image" data-id="${asset.id}" title="Delete">🗑️</button>
@@ -697,7 +716,7 @@ function bindDialogs() {
 
 function bindInsertButtons() {
   document.querySelectorAll(".btn-insert").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const type = btn.dataset.type;
       let content = "";
@@ -707,8 +726,21 @@ function bindInsertButtons() {
         const url = btn.dataset.url || "";
         content = `> ${text}\n\nSource: ${url || "N/A"}`;
       } else if (type === "bookmark") {
-        const url = btn.dataset.url || "";
-        content = url;
+        const bookmarkId = btn.dataset.id || "";
+        if (!bookmarkId) {
+          return setStatus("Bookmark id is missing.", true);
+        }
+
+        try {
+          await sendMessage({
+            type: "sidepanel:insert-bookmark-into-editor",
+            payload: { bookmarkId }
+          });
+          setStatus("Inserted into editor.");
+        } catch (error) {
+          setStatus(error.message, true);
+        }
+        return;
       }
 
       try {
@@ -720,11 +752,11 @@ function bindInsertButtons() {
       } catch (error) {
         setStatus(error.message, true);
       }
-    });
+    };
   });
 
   document.querySelectorAll(".btn-insert-image").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const src = btn.dataset.src || "";
       if (!src) {
@@ -749,13 +781,13 @@ function bindInsertButtons() {
       } catch (error) {
         setStatus(error.message, true);
       }
-    });
+    };
   });
 }
 
 function bindDragHandlers() {
   document.querySelectorAll("[draggable='true']").forEach((item) => {
-    item.addEventListener("dragstart", (e) => {
+    item.ondragstart = (e) => {
       const type = item.dataset.type;
       let content = "";
 
@@ -765,15 +797,51 @@ function bindDragHandlers() {
         content = `> ${text}\n\nSource: ${url || "N/A"}`;
       } else if (type === "bookmark") {
         const url = item.dataset.url || "";
+        const title = item.dataset.title || url;
+        const imageUrlsRaw = item.dataset.imageUrls || "";
+        let imageUrls = [];
+
+        try {
+          imageUrls = JSON.parse(decodeURIComponent(imageUrlsRaw));
+        } catch {
+          imageUrls = [];
+        }
+
+        const safeImageUrls = Array.isArray(imageUrls)
+          ? imageUrls.map((entry) => String(entry || "").trim()).filter(Boolean)
+          : [];
+
+        const linkHtml = `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer">${escapeHtml(title || url)}</a>`;
+        const galleryHtml = safeImageUrls.length
+          ? `<figure>${safeImageUrls.map((src) => `<img src="${escapeHtml(src)}" alt="" />`).join("")}</figure>`
+          : "";
+        const htmlPayload = `<p>${linkHtml}</p>${galleryHtml}`;
+
+        const customPayload = JSON.stringify({
+          url,
+          title,
+          imageUrls: safeImageUrls
+        });
+
+        e.dataTransfer.setData("application/x-substack-bookmark-asset", customPayload);
+        e.dataTransfer.setData("text/html", htmlPayload);
+        e.dataTransfer.setData("text/uri-list", url);
+
+        // Prefer URL-only plain text so dropping does not insert markdown literals.
         content = url;
       } else if (type === "image") {
         const src = item.dataset.src || "";
+        const id = item.dataset.id || "";
+        const title = item.dataset.title || "image";
+        const payload = JSON.stringify({ src, id, title });
         content = `![image](${src})`;
+        e.dataTransfer.setData("application/x-substack-image-asset", payload);
+        e.dataTransfer.setData("text/uri-list", src);
       }
 
       e.dataTransfer.effectAllowed = "copy";
       e.dataTransfer.setData("text/plain", content);
-    });
+    };
   });
 }
 

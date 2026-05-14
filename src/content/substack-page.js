@@ -99,6 +99,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } catch (error) {
       sendResponse({ ok: false, error: error.message });
     }
+  } else if (message?.type === "content:insert-bookmark-into-editor") {
+    try {
+      insertBookmarkWithGallery(message.payload?.bookmark || null);
+      sendResponse({ ok: true });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
   }
 });
 
@@ -160,6 +167,43 @@ function insertIntoSubstackEditor(content) {
   }
 }
 
+function ensureSelectionInsideEditor(editor) {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  if (!selection.rangeCount || !editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
+function insertHtmlIntoSubstackEditor(editor, html, plainText = "") {
+  const dt = new DataTransfer();
+  dt.setData("text/html", html);
+  dt.setData("text/plain", plainText || "");
+
+  const pasteEvent = new ClipboardEvent("paste", {
+    bubbles: true,
+    cancelable: true
+  });
+
+  Object.defineProperty(pasteEvent, "clipboardData", { value: dt });
+  const wasNotCanceled = editor.dispatchEvent(pasteEvent);
+
+  // If paste was not handled, fall back to direct HTML insertion.
+  if (wasNotCanceled) {
+    const inserted = document.execCommand("insertHTML", false, html);
+    if (!inserted && plainText) {
+      document.execCommand("insertText", false, plainText);
+    }
+  }
+}
+
 function insertImageViaClipboardEvent(dataUrl) {
   if (!dataUrl) {
     throw new Error("No image data to insert.");
@@ -171,6 +215,7 @@ function insertImageViaClipboardEvent(dataUrl) {
   }
 
   editor.focus();
+  ensureSelectionInsideEditor(editor);
 
   // Build a DataTransfer with text/html so ProseMirror's paste handler picks it up.
   const dt = new DataTransfer();
@@ -186,4 +231,52 @@ function insertImageViaClipboardEvent(dataUrl) {
   Object.defineProperty(pasteEvent, "clipboardData", { value: dt });
 
   editor.dispatchEvent(pasteEvent);
+}
+
+function insertBookmarkWithGallery(bookmark) {
+  if (!bookmark || typeof bookmark !== "object") {
+    throw new Error("No bookmark data to insert.");
+  }
+
+  const pageUrl = String(bookmark.pageUrl || "").trim();
+  if (!pageUrl) {
+    throw new Error("Bookmark URL is missing.");
+  }
+
+  const title = String(bookmark.title || pageUrl).trim() || pageUrl;
+  const imageUrls = Array.isArray(bookmark.imageUrls)
+    ? bookmark.imageUrls.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  const editor = findVisibleEditor();
+  if (!editor) {
+    throw new Error("No visible editor found on this page.");
+  }
+
+  editor.focus();
+  ensureSelectionInsideEditor(editor);
+
+  const linkHtml = `<p><a href="${escapeHtmlAttribute(pageUrl)}">${escapeHtmlText(title)}</a></p>`;
+  const galleryHtml = imageUrls.length
+    ? `<figure>${imageUrls.map((url) => `<img src="${escapeHtmlAttribute(url)}" alt="">`).join("")}</figure>`
+    : "";
+
+  const plainText = [pageUrl, imageUrls.join("\n")]
+    .filter(Boolean)
+    .join("\n");
+
+  insertHtmlIntoSubstackEditor(editor, `${linkHtml}${galleryHtml}`, plainText);
+}
+
+function escapeHtmlText(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function escapeHtmlAttribute(value) {
+  return escapeHtmlText(value)
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }

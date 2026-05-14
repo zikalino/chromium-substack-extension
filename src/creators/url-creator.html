@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Capture URL</title>
+    <link rel="stylesheet" href="./url-creator.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="header">
+        <h1>Capture Active Page URL</h1>
+        <p id="status" class="status">Loading capture data...</p>
+      </header>
+
+      <section class="panel">
+        <label>Title
+          <input id="url-title" type="text" />
+        </label>
+        <label>URL
+          <input id="url-value" type="url" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Screenshot</h2>
+          <label class="inline-check">
+            <input id="include-screenshot" type="checkbox" checked />
+            Include screenshot
+          </label>
+        </div>
+
+        <div id="screenshot-block" class="screenshot-block">
+          <canvas id="screenshot-canvas" width="1200" height="700"></canvas>
+          <div id="crop-overlay" class="crop-overlay hidden"></div>
+          <div class="crop-tools">
+            <button id="start-crop" type="button">Start crop</button>
+            <button id="apply-crop" type="button">Apply crop</button>
+            <button id="reset-crop" type="button">Reset</button>
+          </div>
+          <p class="hint">Drag on the screenshot to select crop area.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Page Images <span id="image-count" class="count-pill">0</span></h2>
+          <button id="toggle-images" type="button">Select all</button>
+        </div>
+        <ul id="image-list" class="image-list"></ul>
+      </section>
+
+      <footer class="footer">
+        <button id="save-bookmark" type="button">Save URL</button>
+        <button id="cancel" type="button">Cancel</button>
+      </footer>
+    </main>
+
+    <script type="module" src="./url-creator.js"></script>
+  </body>
+</html>

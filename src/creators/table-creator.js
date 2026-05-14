@@ -10,6 +10,8 @@ const els = {
   headerBg: document.querySelector("#table-header-bg"),
   textColor: document.querySelector("#table-text-color"),
   borderColor: document.querySelector("#table-border-color"),
+  toolsToggle: document.querySelector("#table-tools-toggle"),
+  toolsMenu: document.querySelector("#table-tools-menu"),
   addRow: document.querySelector("#add-table-row"),
   addCol: document.querySelector("#add-table-col"),
   removeRow: document.querySelector("#remove-table-row"),
@@ -48,59 +50,33 @@ function bindActions() {
   });
 
   els.addRow.addEventListener("click", () => {
-    readGridValues();
-    const cols = tableData[0]?.length || 1;
-    tableData.push(Array.from({ length: cols }, (_, c) => (c === 0 ? `Row ${tableData.length}` : "")));
-    cellStyles.push(Array.from({ length: cols }, () => null));
-    els.rows.value = String(tableData.length);
-    renderGridEditor(tableData.length, cols, true);
-    setStatus(els.statusText, "Row added.");
+    insertRowsAroundSelection("after");
   });
 
   els.addCol.addEventListener("click", () => {
-    readGridValues();
-    if (!tableData.length) {
-      tableData = [["Header 1"]];
-      cellStyles = [[null]];
-    }
-
-    tableData.forEach((row, r) => {
-      row.push(r === 0 ? `Header ${row.length + 1}` : "");
-    });
-    cellStyles.forEach((row) => row.push(null));
-
-    els.cols.value = String(tableData[0]?.length || 1);
-    renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
-    setStatus(els.statusText, "Column added.");
+    insertColumnsAroundSelection("after");
   });
 
   els.removeRow.addEventListener("click", () => {
-    readGridValues();
-    if (tableData.length <= 1) {
-      return setStatus(els.statusText, "At least one row is required.", true);
-    }
-
-    tableData.pop();
-    cellStyles.pop();
-    normalizeSelectionToBounds();
-    els.rows.value = String(tableData.length);
-    renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
-    setStatus(els.statusText, "Row removed.");
+    removeRowsFromSelection();
   });
 
   els.removeCol.addEventListener("click", () => {
-    readGridValues();
-    const cols = tableData[0]?.length || 1;
-    if (cols <= 1) {
-      return setStatus(els.statusText, "At least one column is required.", true);
-    }
+    removeColumnsFromSelection();
+  });
 
-    tableData.forEach((row) => row.pop());
-    cellStyles.forEach((row) => row.pop());
-    normalizeSelectionToBounds();
-    els.cols.value = String(tableData[0]?.length || 1);
-    renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
-    setStatus(els.statusText, "Column removed.");
+  els.toolsToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleToolsMenu();
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!(event.target instanceof Node)) {
+      return;
+    }
+    if (!els.toolsMenu.contains(event.target) && event.target !== els.toolsToggle) {
+      hideToolsMenu();
+    }
   });
 
   els.gridWrap.addEventListener("mousedown", (event) => {
@@ -346,6 +322,7 @@ function renderGridEditor(rows, cols, keepFocus = false) {
 
   updateSelectionUi();
   syncFormatControlsFromSelection();
+  syncToolsToggleState();
 
   if (focus) {
     focusCell(focus.row, focus.col);
@@ -417,6 +394,118 @@ function normalizeSelectionToBounds() {
   const rows = tableData.length;
   const cols = tableData[0]?.length || 1;
   selection = normalizeSelection(selection, rows, cols);
+}
+
+function insertRowsAroundSelection(position = "after") {
+  readGridValues();
+  const range = getSelectionRange();
+  const cols = tableData[0]?.length || 1;
+  const insertAt = range ? (position === "before" ? range.startRow : range.endRow + 1) : tableData.length;
+  const rowCount = range ? range.endRow - range.startRow + 1 : 1;
+  const rowsToInsert = Array.from({ length: rowCount }, (_, index) => {
+    const isHeader = insertAt === 0 && index === 0;
+    return Array.from({ length: cols }, (_, col) => (isHeader && col === 0 ? `Row ${insertAt + index + 1}` : ""));
+  });
+
+  tableData.splice(insertAt, 0, ...rowsToInsert);
+  cellStyles.splice(insertAt, 0, ...Array.from({ length: rowCount }, () => Array.from({ length: cols }, () => null)));
+  els.rows.value = String(tableData.length);
+  normalizeSelectionToBounds();
+  renderGridEditor(tableData.length, cols, true);
+  setStatus(els.statusText, range ? `Inserted ${rowCount} row(s).` : "Row added.");
+}
+
+function insertColumnsAroundSelection(position = "after") {
+  readGridValues();
+  const range = getSelectionRange();
+  if (!tableData.length) {
+    tableData = [["Header 1"]];
+    cellStyles = [[null]];
+  }
+
+  const insertAt = range ? (position === "before" ? range.startCol : range.endCol + 1) : (tableData[0]?.length || 0);
+  const columnCount = range ? range.endCol - range.startCol + 1 : 1;
+
+  tableData.forEach((row, rowIndex) => {
+    const inserts = Array.from({ length: columnCount }, (_, offset) => {
+      const isHeader = rowIndex === 0 && insertAt === 0 && offset === 0;
+      return isHeader ? `Header ${insertAt + offset + 1}` : "";
+    });
+    row.splice(insertAt, 0, ...inserts);
+  });
+
+  cellStyles.forEach((row) => {
+    row.splice(insertAt, 0, ...Array.from({ length: columnCount }, () => null));
+  });
+
+  els.cols.value = String(tableData[0]?.length || 1);
+  normalizeSelectionToBounds();
+  renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
+  setStatus(els.statusText, range ? `Inserted ${columnCount} column(s).` : "Column added.");
+}
+
+function removeRowsFromSelection() {
+  readGridValues();
+  const range = getSelectionRange();
+  const rows = tableData.length;
+  if (rows <= 1) {
+    return setStatus(els.statusText, "At least one row is required.", true);
+  }
+
+  const start = range ? range.startRow : rows - 1;
+  const end = range ? range.endRow : rows - 1;
+  const removeCount = end - start + 1;
+  if (rows - removeCount < 1) {
+    return setStatus(els.statusText, "At least one row is required.", true);
+  }
+
+  tableData.splice(start, removeCount);
+  cellStyles.splice(start, removeCount);
+  els.rows.value = String(tableData.length);
+  normalizeSelectionToBounds();
+  renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
+  setStatus(els.statusText, range ? `Removed ${removeCount} row(s).` : "Row removed.");
+}
+
+function removeColumnsFromSelection() {
+  readGridValues();
+  const range = getSelectionRange();
+  const cols = tableData[0]?.length || 1;
+  if (cols <= 1) {
+    return setStatus(els.statusText, "At least one column is required.", true);
+  }
+
+  const start = range ? range.startCol : cols - 1;
+  const end = range ? range.endCol : cols - 1;
+  const removeCount = end - start + 1;
+  if (cols - removeCount < 1) {
+    return setStatus(els.statusText, "At least one column is required.", true);
+  }
+
+  tableData.forEach((row) => row.splice(start, removeCount));
+  cellStyles.forEach((row) => row.splice(start, removeCount));
+  els.cols.value = String(tableData[0]?.length || 1);
+  normalizeSelectionToBounds();
+  renderGridEditor(tableData.length, tableData[0]?.length || 1, true);
+  setStatus(els.statusText, range ? `Removed ${removeCount} column(s).` : "Column removed.");
+}
+
+function syncToolsToggleState() {
+  const hasSelection = Boolean(getSelectionRange());
+  els.toolsToggle.classList.toggle("hidden", !hasSelection);
+  if (!hasSelection) {
+    hideToolsMenu();
+  }
+}
+
+function toggleToolsMenu() {
+  els.toolsMenu.classList.toggle("hidden");
+  els.toolsToggle.setAttribute("aria-expanded", String(!els.toolsMenu.classList.contains("hidden")));
+}
+
+function hideToolsMenu() {
+  els.toolsMenu.classList.add("hidden");
+  els.toolsToggle.setAttribute("aria-expanded", "false");
 }
 
 function getSelectionRange() {

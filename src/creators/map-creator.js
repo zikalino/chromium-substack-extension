@@ -1,10 +1,12 @@
-import { clamp, getAssetIdFromQuery, getImageAssetById, parseDataLines, saveCanvasAsImage, setStatus } from "./shared.js";
+import { clamp, getAssetIdFromQuery, getImageAssetById, saveCanvasAsImage, setStatus } from "./shared.js";
 
 const els = {
   statusText: document.querySelector("#status-text"),
   mapMode: document.querySelector("#map-mode"),
-  cityLines: document.querySelector("#city-lines"),
-  connectionLines: document.querySelector("#connection-lines"),
+  citiesTableBody: document.querySelector("#cities-table-body"),
+  addCityRowBtn: document.querySelector("#add-city-row"),
+  regionsTableBody: document.querySelector("#regions-table-body"),
+  addRegionRowBtn: document.querySelector("#add-region-row"),
   layoutType: document.querySelector("#layout-type"),
   mapTitle: document.querySelector("#map-title"),
   geocodeResults: document.querySelector("#geocode-results"),
@@ -12,6 +14,13 @@ const els = {
 };
 
 const ctx = els.canvas.getContext("2d");
+
+// City data structure: array of { query, displayName, latitude, longitude, country }
+// Region data structure: array of { query, displayName, osmId, osmType, color, lineWidth, geojson }
+const state = {
+  cities: [],
+  regions: []
+};
 
 bindActions();
 void init();
@@ -34,6 +43,13 @@ function bindActions() {
     void renderMap();
   });
 
+  els.addCityRowBtn.addEventListener("click", () => {
+    addCityRow();
+  });
+
+  els.addRegionRowBtn.addEventListener("click", () => {
+    addRegionRow();
+  });
   els.mapMode.addEventListener("change", () => {
     const isManual = els.mapMode.value === "manual";
     els.layoutType.disabled = !isManual;
@@ -62,16 +78,51 @@ function bindActions() {
 
 async function restoreSavedMap() {
   const asset = await getImageAssetById(getAssetIdFromQuery());
-  const state = asset?.editorState;
-  if (!state) {
+  const restoredState = asset?.editorState;
+  if (!restoredState) {
     return false;
   }
 
-  els.mapMode.value = state.mapMode || "geocoded";
-  els.cityLines.value = Array.isArray(state.cities) ? state.cities.join("\n") : "";
-  els.connectionLines.value = Array.isArray(state.connections) ? state.connections.join("\n") : "";
-  els.layoutType.value = state.layoutType || "circle";
-  els.mapTitle.value = state.title || els.mapTitle.value;
+  els.mapMode.value = restoredState.mapMode || "geocoded";
+  els.layoutType.value = restoredState.layoutType || "circle";
+  els.mapTitle.value = restoredState.title || els.mapTitle.value;
+  
+  // Restore cities
+  if (Array.isArray(restoredState.cities)) {
+    state.cities = restoredState.cities.map((city) => ({
+      query: String(city.query || ""),
+      displayName: String(city.displayName || ""),
+      latitude: Number(city.latitude || 0),
+      longitude: Number(city.longitude || 0),
+      country: String(city.country || ""),
+      connections: Array.isArray(city.connections)
+        ? city.connections.map((item) => String(item || "").trim()).filter(Boolean)
+        : []
+    }));
+    renderCitiesTable();
+  }
+
+  // Restore regions
+  if (Array.isArray(restoredState.regions)) {
+    state.regions = restoredState.regions.map((r) => ({
+      query: String(r.query || ""),
+      displayName: String(r.displayName || ""),
+      osmId: r.osmId || null,
+      osmType: r.osmType || null,
+      color: String(r.color || "#e63946"),
+      lineWidth: Number(r.lineWidth || 3),
+      // Do not persist heavy boundary geometry in storage.
+      geojson: null
+    }));
+    renderRegionsTable();
+  }
+
+  // Backward compatibility for older saved maps using global connection lines.
+  if (Array.isArray(restoredState.connections) && state.cities.length) {
+    migrateLegacyConnections(restoredState.connections);
+    renderCitiesTable();
+  }
+
   els.geocodeResults.textContent = "";
   return true;
 }
@@ -79,21 +130,733 @@ async function restoreSavedMap() {
 function collectMapState() {
   return {
     mapMode: els.mapMode.value,
-    cities: normalizeCityList(els.cityLines.value),
-    connections: parseDataLines(els.connectionLines.value),
+    cities: state.cities,
+    regions: state.regions.map((r) => ({
+      query: r.query,
+      displayName: r.displayName,
+      osmId: r.osmId,
+      osmType: r.osmType,
+      color: r.color,
+      lineWidth: r.lineWidth
+    })),
     layoutType: els.layoutType.value,
     title: els.mapTitle.value.trim()
   };
 }
 
+function migrateLegacyConnections(connectionLines) {
+  const indexByKey = new Map();
+  for (let i = 0; i < state.cities.length; i += 1) {
+    const city = state.cities[i];
+    const query = String(city.query || "").trim();
+    const display = String(city.displayName || city.query || "").trim();
+    if (query) {
+      indexByKey.set(query.toLowerCase(), i);
+    }
+    if (display) {
+      indexByKey.set(display.toLowerCase(), i);
+    }
+  }
+
+  for (const line of connectionLines) {
+    const normalized = String(line || "").replaceAll("->", "-").replaceAll(" to ", "-");
+    const segments = normalized.split("-").map((part) => part.trim()).filter(Boolean);
+    if (segments.length < 2) {
+      continue;
+    }
+
+    const sourceIndex = indexByKey.get(segments[0].toLowerCase());
+    if (sourceIndex === undefined) {
+      continue;
+    }
+    if (!Array.isArray(state.cities[sourceIndex].connections)) {
+      state.cities[sourceIndex].connections = [];
+    }
+    state.cities[sourceIndex].connections.push(segments[1]);
+  }
+
+  for (const city of state.cities) {
+    city.connections = Array.from(new Set((city.connections || []).filter(Boolean)));
+  }
+}
+
 function loadExample() {
-  els.cityLines.value = ["Lisbon", "Madrid", "Paris", "Brussels", "Amsterdam"].join("\n");
-  els.connectionLines.value = [
-    "Lisbon-Madrid",
-    "Madrid-Paris",
-    "Paris-Brussels",
-    "Brussels-Amsterdam"
-  ].join("\n");
+  state.cities = [
+    {
+      query: "Lisbon",
+      displayName: "Lisbon",
+      latitude: 38.7223,
+      longitude: -9.1393,
+      country: "Portugal",
+      connections: ["Madrid"]
+    },
+    {
+      query: "Madrid",
+      displayName: "Madrid",
+      latitude: 40.4168,
+      longitude: -3.7038,
+      country: "Spain",
+      connections: ["Paris"]
+    },
+    {
+      query: "Paris",
+      displayName: "Paris",
+      latitude: 48.8566,
+      longitude: 2.3522,
+      country: "France",
+      connections: ["Brussels"]
+    },
+    {
+      query: "Brussels",
+      displayName: "Brussels",
+      latitude: 50.8503,
+      longitude: 4.3517,
+      country: "Belgium",
+      connections: ["Amsterdam"]
+    },
+    {
+      query: "Amsterdam",
+      displayName: "Amsterdam",
+      latitude: 52.3676,
+      longitude: 4.9041,
+      country: "Netherlands",
+      connections: []
+    }
+  ];
+  renderCitiesTable();
+}
+
+function renderCitiesTable() {
+  els.citiesTableBody.innerHTML = "";
+  for (let i = 0; i < state.cities.length; i++) {
+    addCityTableRow(i);
+  }
+  // Add one empty row at the end if table is empty
+  if (state.cities.length === 0) {
+    addCityTableRow(0);
+  }
+}
+
+function ensureCityAtIndex(index) {
+  while (state.cities.length <= index) {
+    state.cities.push({
+      query: "",
+      displayName: "",
+      latitude: 0,
+      longitude: 0,
+      country: "",
+      connections: []
+    });
+  }
+  if (!Array.isArray(state.cities[index].connections)) {
+    state.cities[index].connections = [];
+  }
+}
+
+function addCityTableRow(index) {
+  const city = state.cities[index];
+  const tr = document.createElement("tr");
+  
+  const cityCell = document.createElement("td");
+  cityCell.className = "city-input-cell";
+  const cityInput = document.createElement("input");
+  cityInput.type = "text";
+  cityInput.placeholder = "Search city...";
+  cityInput.value = city?.query || "";
+  cityInput.dataset.index = String(index);
+  
+  let searchTimeout;
+  cityInput.addEventListener("input", (e) => {
+    clearTimeout(searchTimeout);
+    const query = e.target.value.trim();
+
+    ensureCityAtIndex(index);
+    state.cities[index].query = query;
+    // New free-typed query invalidates prior approved coordinates.
+    state.cities[index].latitude = 0;
+    state.cities[index].longitude = 0;
+    if (!state.cities[index].displayName) {
+      state.cities[index].displayName = query;
+    }
+    
+    if (!query) {
+      closeAutocomplete(cityInput);
+      return;
+    }
+    
+    searchTimeout = setTimeout(async () => {
+      const matches = await searchCities(query);
+      showAutocomplete(cityInput, matches, index);
+    }, 300);
+  });
+
+  cityInput.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    const dropdown = cityCell.querySelector(".city-autocomplete");
+    const firstItem = dropdown?.querySelector(".city-autocomplete-item");
+    if (firstItem) {
+      firstItem.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      return;
+    }
+    const query = cityInput.value.trim();
+    if (query) {
+      await resolveCityAtIndex(index, query);
+    }
+  });
+  
+  cityInput.addEventListener("blur", () => {
+    setTimeout(() => closeAutocomplete(cityInput), 200);
+  });
+  
+  cityCell.appendChild(cityInput);
+  tr.appendChild(cityCell);
+  
+  const displayCell = document.createElement("td");
+  const displayInput = document.createElement("input");
+  displayInput.type = "text";
+  displayInput.placeholder = "Will auto-fill...";
+  displayInput.value = city?.displayName || "";
+  displayInput.dataset.index = String(index);
+  displayInput.addEventListener("input", (event) => {
+    ensureCityAtIndex(index);
+    state.cities[index].displayName = event.target.value.trim();
+  });
+  displayCell.appendChild(displayInput);
+  tr.appendChild(displayCell);
+
+  const connectionsCell = document.createElement("td");
+  connectionsCell.className = "city-connections-cell";
+  const stack = document.createElement("div");
+  stack.className = "connections-stack";
+  const cityConnections = Array.isArray(city?.connections) ? city.connections : [];
+
+  if (!cityConnections.length) {
+    stack.appendChild(createConnectionEditor(index, ""));
+  } else {
+    for (const connectionValue of cityConnections) {
+      stack.appendChild(createConnectionEditor(index, connectionValue));
+    }
+  }
+
+  const addConnectionBtn = document.createElement("button");
+  addConnectionBtn.type = "button";
+  addConnectionBtn.className = "connection-add-btn";
+  addConnectionBtn.textContent = "+ Add link";
+  addConnectionBtn.addEventListener("click", () => {
+    ensureCityAtIndex(index);
+    state.cities[index].connections.push("");
+    renderCitiesTable();
+  });
+  stack.appendChild(addConnectionBtn);
+  connectionsCell.appendChild(stack);
+  tr.appendChild(connectionsCell);
+  
+  const actionCell = document.createElement("td");
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "city-remove-btn";
+  removeBtn.textContent = "✕";
+  removeBtn.addEventListener("click", () => removeCityRow(index));
+  actionCell.appendChild(removeBtn);
+  tr.appendChild(actionCell);
+  
+  els.citiesTableBody.appendChild(tr);
+}
+
+function createConnectionEditor(cityIndex, value) {
+  const row = document.createElement("div");
+  row.className = "connection-row";
+
+  const inputWrap = document.createElement("div");
+  inputWrap.className = "connection-input-wrap";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "Connect to city...";
+  input.value = value || "";
+
+  input.addEventListener("input", (event) => {
+    ensureCityAtIndex(cityIndex);
+    state.cities[cityIndex].connections = collectConnectionValues(row.parentElement);
+
+    const query = event.target.value.trim();
+    if (!query) {
+      closeConnectionAutocomplete(input);
+      return;
+    }
+
+    const suggestions = getConnectionSuggestions(cityIndex, query);
+    showConnectionAutocomplete(input, suggestions, (selected) => {
+      input.value = selected;
+      state.cities[cityIndex].connections = collectConnectionValues(row.parentElement);
+    });
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    const dropdown = row.querySelector(".connection-autocomplete");
+    const firstItem = dropdown?.querySelector(".connection-autocomplete-item");
+    if (firstItem) {
+      event.preventDefault();
+      firstItem.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    setTimeout(() => closeConnectionAutocomplete(input), 180);
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "connection-remove-btn";
+  removeBtn.textContent = "-";
+  removeBtn.title = "Remove link";
+  removeBtn.addEventListener("click", () => {
+    const container = row.parentElement;
+    row.remove();
+    ensureCityAtIndex(cityIndex);
+    state.cities[cityIndex].connections = collectConnectionValues(container);
+    if (!state.cities[cityIndex].connections.length) {
+      state.cities[cityIndex].connections.push("");
+    }
+    renderCitiesTable();
+  });
+
+  inputWrap.appendChild(input);
+  row.appendChild(inputWrap);
+  row.appendChild(removeBtn);
+  return row;
+}
+
+function collectConnectionValues(container) {
+  return Array.from(container.querySelectorAll(".connection-row input"))
+    .map((input) => input.value.trim())
+    .filter(Boolean);
+}
+
+function getConnectionSuggestions(sourceCityIndex, query) {
+  const term = query.toLowerCase();
+  const sourceCity = state.cities[sourceCityIndex];
+  const sourceName = String(sourceCity?.displayName || sourceCity?.query || "").trim().toLowerCase();
+
+  const unique = new Set();
+  for (let i = 0; i < state.cities.length; i += 1) {
+    const city = state.cities[i];
+    if (!city) {
+      continue;
+    }
+    const display = String(city.displayName || city.query || "").trim();
+    if (!display) {
+      continue;
+    }
+    const displayLower = display.toLowerCase();
+    if (displayLower === sourceName) {
+      continue;
+    }
+    if (displayLower.includes(term)) {
+      unique.add(display);
+    }
+  }
+
+  return Array.from(unique).slice(0, 8);
+}
+
+function showConnectionAutocomplete(input, suggestions, onSelect) {
+  closeConnectionAutocomplete(input);
+  if (!suggestions.length) {
+    return;
+  }
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "connection-autocomplete";
+
+  const row = input.closest(".connection-row");
+  const rowRect = row.getBoundingClientRect();
+  const estimatedHeight = Math.min(140, suggestions.length * 30 + 2);
+  const spaceBelow = window.innerHeight - rowRect.bottom;
+  const spaceAbove = rowRect.top;
+  if (spaceBelow < estimatedHeight && spaceAbove > spaceBelow) {
+    dropdown.classList.add("open-up");
+  }
+
+  for (const suggestion of suggestions) {
+    const item = document.createElement("div");
+    item.className = "connection-autocomplete-item";
+    item.textContent = suggestion;
+    item.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      onSelect(suggestion);
+      closeConnectionAutocomplete(input);
+    });
+    dropdown.appendChild(item);
+  }
+
+  row.classList.add("autocomplete-open");
+  input.parentElement.appendChild(dropdown);
+}
+
+function closeConnectionAutocomplete(input) {
+  const row = input.closest(".connection-row");
+  const dropdown = input.parentElement.querySelector(".connection-autocomplete");
+  if (dropdown) {
+    dropdown.remove();
+  }
+  if (row) {
+    row.classList.remove("autocomplete-open");
+  }
+}
+
+function addCityRow() {
+  state.cities.push({
+    query: "",
+    displayName: "",
+    latitude: 0,
+    longitude: 0,
+    country: "",
+    connections: []
+  });
+  renderCitiesTable();
+  // Focus the new city input
+  const inputs = els.citiesTableBody.querySelectorAll("input[placeholder='Search city...']");
+  if (inputs.length > 0) {
+    inputs[inputs.length - 1].focus();
+  }
+}
+
+// ── Regions table ────────────────────────────────────────────────────────────
+
+function renderRegionsTable() {
+  els.regionsTableBody.innerHTML = "";
+  if (!state.regions.length) {
+    return;
+  }
+  for (let i = 0; i < state.regions.length; i++) {
+    els.regionsTableBody.appendChild(createRegionRow(i));
+  }
+}
+
+function addRegionRow() {
+  state.regions.push({
+    query: "",
+    displayName: "",
+    osmId: null,
+    osmType: null,
+    color: "#e63946",
+    lineWidth: 3,
+    geojson: null
+  });
+  renderRegionsTable();
+  const inputs = els.regionsTableBody.querySelectorAll("input.region-search-input");
+  if (inputs.length > 0) {
+    inputs[inputs.length - 1].focus();
+  }
+}
+
+function createRegionRow(index) {
+  const region = state.regions[index];
+  const tr = document.createElement("tr");
+
+  // --- search cell ---
+  const searchCell = document.createElement("td");
+  searchCell.className = "region-input-cell";
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.className = "region-search-input";
+  searchInput.placeholder = "Search province / country...";
+  searchInput.value = region.displayName || region.query || "";
+
+  let searchTimeout;
+  searchInput.addEventListener("input", (event) => {
+    clearTimeout(searchTimeout);
+    const query = event.target.value.trim();
+    state.regions[index].query = query;
+    state.regions[index].osmId = null;
+    state.regions[index].geojson = null;
+    if (!query) {
+      closeRegionAutocomplete(searchInput);
+      return;
+    }
+    searchTimeout = setTimeout(async () => {
+      const matches = await searchRegions(query);
+      showRegionAutocomplete(searchInput, matches, index);
+    }, 400);
+  });
+
+  searchInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    const dropdown = searchCell.querySelector(".region-autocomplete");
+    const firstItem = dropdown?.querySelector(".region-autocomplete-item");
+    if (firstItem) {
+      event.preventDefault();
+      firstItem.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    }
+  });
+
+  searchInput.addEventListener("blur", () => {
+    setTimeout(() => closeRegionAutocomplete(searchInput), 180);
+  });
+
+  searchCell.appendChild(searchInput);
+  tr.appendChild(searchCell);
+
+  // --- controls cell ---
+  const controlsCell = document.createElement("td");
+  const controls = document.createElement("div");
+  controls.className = "region-controls";
+
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.className = "region-color-input";
+  colorInput.value = region.color || "#e63946";
+  colorInput.title = "Border color";
+  colorInput.addEventListener("input", (event) => {
+    state.regions[index].color = event.target.value;
+  });
+
+  const widthInput = document.createElement("input");
+  widthInput.type = "number";
+  widthInput.className = "region-width-input";
+  widthInput.value = String(region.lineWidth ?? 3);
+  widthInput.min = "1";
+  widthInput.max = "12";
+  widthInput.title = "Line width (px)";
+  widthInput.addEventListener("input", (event) => {
+    state.regions[index].lineWidth = Math.max(1, Number(event.target.value) || 3);
+  });
+
+  controls.appendChild(colorInput);
+  controls.appendChild(widthInput);
+  controlsCell.appendChild(controls);
+  tr.appendChild(controlsCell);
+
+  // --- remove cell ---
+  const removeCell = document.createElement("td");
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "region-remove-btn";
+  removeBtn.textContent = "✕";
+  removeBtn.addEventListener("click", () => {
+    state.regions.splice(index, 1);
+    renderRegionsTable();
+  });
+  removeCell.appendChild(removeBtn);
+  tr.appendChild(removeCell);
+
+  return tr;
+}
+
+async function searchRegions(query) {
+  try {
+    const endpoint = new URL("https://nominatim.openstreetmap.org/search");
+    endpoint.searchParams.set("q", query);
+    endpoint.searchParams.set("format", "json");
+    endpoint.searchParams.set("limit", "8");
+    endpoint.searchParams.set("featuretype", "settlement,country,state");
+    endpoint.searchParams.set("addressdetails", "1");
+    endpoint.searchParams.set("accept-language", "en");
+
+    const response = await fetch(endpoint, {
+      headers: { "Accept-Language": "en" }
+    });
+    if (!response.ok) {
+      return [];
+    }
+    const results = await response.json();
+    // Filter to administrative/boundary types only
+    return results
+      .filter((r) => r.osm_type && r.osm_id && ["administrative", "boundary"].includes(r.class || r.type))
+      .map((r) => ({
+        osmId: String(r.osm_id),
+        osmType: r.osm_type,
+        displayName: r.display_name.split(",").slice(0, 2).join(",").trim(),
+        fullName: r.display_name,
+        type: r.type
+      }));
+  } catch (error) {
+    console.error("Region search error:", error);
+    return [];
+  }
+}
+
+function showRegionAutocomplete(input, matches, regionIndex) {
+  closeRegionAutocomplete(input);
+  if (!matches.length) {
+    return;
+  }
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "region-autocomplete";
+
+  const cellRect = input.parentElement.getBoundingClientRect();
+  const estimatedHeight = Math.min(160, matches.length * 46 + 2);
+  const spaceBelow = window.innerHeight - cellRect.bottom;
+  if (spaceBelow < estimatedHeight && cellRect.top > spaceBelow) {
+    dropdown.classList.add("open-up");
+  }
+
+  for (const match of matches) {
+    const item = document.createElement("div");
+    item.className = "region-autocomplete-item";
+    item.innerHTML = `${match.displayName}<small>${match.fullName}</small>`;
+    item.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      state.regions[regionIndex].query = match.fullName;
+      state.regions[regionIndex].displayName = match.displayName;
+      state.regions[regionIndex].osmId = match.osmId;
+      state.regions[regionIndex].osmType = match.osmType;
+      state.regions[regionIndex].geojson = null;
+      renderRegionsTable();
+    });
+    dropdown.appendChild(item);
+  }
+
+  input.parentElement.classList.add("autocomplete-open");
+  input.parentElement.appendChild(dropdown);
+}
+
+function closeRegionAutocomplete(input) {
+  const dropdown = input.parentElement.querySelector(".region-autocomplete");
+  if (dropdown) {
+    dropdown.remove();
+  }
+  input.parentElement.classList.remove("autocomplete-open");
+}
+
+async function fetchRegionGeoJSON(osmType, osmId) {
+  // Use Nominatim details endpoint to get GeoJSON polygon
+  const endpoint = new URL("https://nominatim.openstreetmap.org/details");
+  endpoint.searchParams.set("osmtype", osmType.charAt(0).toUpperCase());
+  endpoint.searchParams.set("osmid", osmId);
+  endpoint.searchParams.set("format", "json");
+  endpoint.searchParams.set("polygon_geojson", "1");
+  endpoint.searchParams.set("accept-language", "en");
+
+  const response = await fetch(endpoint, {
+    headers: { "Accept-Language": "en" }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch region boundary (HTTP ${response.status}).`);
+  }
+  const data = await response.json();
+  return data.geometry || null;
+}
+
+
+function removeCityRow(index) {
+  state.cities.splice(index, 1);
+  renderCitiesTable();
+}
+
+async function searchCities(query) {
+  try {
+    const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    endpoint.searchParams.set("name", query);
+    endpoint.searchParams.set("count", "8");
+    endpoint.searchParams.set("language", "en");
+    endpoint.searchParams.set("format", "json");
+    
+    const response = await fetch(endpoint);
+    if (!response.ok) return [];
+    
+    const payload = await response.json();
+    return (payload.results || []).map(r => ({
+      name: r.name,
+      admin1: r.admin1 || "",
+      country: r.country || "",
+      latitude: r.latitude,
+      longitude: r.longitude,
+      displayName: r.name,
+      fullName: [r.name, r.admin1, r.country].filter(Boolean).join(", ")
+    }));
+  } catch (error) {
+    console.error("City search error:", error);
+    return [];
+  }
+}
+
+function showAutocomplete(input, matches, cityIndex) {
+  closeAutocomplete(input);
+  
+  if (!matches.length) return;
+  
+  const dropdown = document.createElement("div");
+  dropdown.className = "city-autocomplete";
+
+  const rowRect = input.parentElement.getBoundingClientRect();
+  const estimatedHeight = Math.min(150, matches.length * 34 + 2);
+  const spaceBelow = window.innerHeight - rowRect.bottom;
+  const spaceAbove = rowRect.top;
+  if (spaceBelow < estimatedHeight && spaceAbove > spaceBelow) {
+    dropdown.classList.add("open-up");
+  }
+  
+  for (const match of matches) {
+    const item = document.createElement("div");
+    item.className = "city-autocomplete-item";
+    item.textContent = match.fullName;
+    item.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      selectCityMatch(match, cityIndex);
+      closeAutocomplete(input);
+    });
+    dropdown.appendChild(item);
+  }
+
+  input.parentElement.classList.add("autocomplete-open");
+  input.parentElement.appendChild(dropdown);
+}
+
+function closeAutocomplete(input) {
+  const dropdown = input.parentElement.querySelector(".city-autocomplete");
+  if (dropdown) {
+    dropdown.remove();
+  }
+  input.parentElement.classList.remove("autocomplete-open");
+}
+
+function selectCityMatch(match, cityIndex) {
+  ensureCityAtIndex(cityIndex);
+  
+  state.cities[cityIndex] = {
+    query: match.name + (match.admin1 ? `, ${match.admin1}` : "") + (match.country ? `, ${match.country}` : ""),
+    displayName: match.displayName,
+    latitude: match.latitude,
+    longitude: match.longitude,
+    country: match.country,
+    connections: Array.isArray(state.cities[cityIndex].connections)
+      ? state.cities[cityIndex].connections
+      : []
+  };
+  
+  renderCitiesTable();
+}
+
+async function resolveCityAtIndex(cityIndex, query) {
+  try {
+    const point = await geocodeCity(query);
+    ensureCityAtIndex(cityIndex);
+    state.cities[cityIndex] = {
+      query,
+      displayName: state.cities[cityIndex].displayName || point.displayName,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      country: point.country,
+      connections: Array.isArray(state.cities[cityIndex].connections)
+        ? state.cities[cityIndex].connections
+        : []
+    };
+    renderCitiesTable();
+  } catch {
+    // Keep typed text as-is and let render validation show the status message.
+  }
 }
 
 async function renderMap() {
@@ -107,8 +870,10 @@ async function renderMap() {
 }
 
 function renderManualMap() {
-  const cityNames = parseDataLines(els.cityLines.value);
-  const links = parseConnections(els.connectionLines.value);
+  const cityNames = state.cities
+    .map((city) => (city.displayName || city.query || "").trim())
+    .filter(Boolean);
+  const links = buildManualLinksFromCityConnections(state.cities);
 
   if (!cityNames.length && !links.length) {
     setStatus(els.statusText, "Add at least one city.", true);
@@ -134,25 +899,48 @@ function renderManualMap() {
 }
 
 async function renderGeocodedMap() {
-  const cities = normalizeCityList(els.cityLines.value);
+  const candidates = state.cities
+    .map((city) => ({
+      ...city,
+      query: String(city.query || "").trim(),
+      displayName: String(city.displayName || "").trim()
+    }))
+    .filter((city) => city.query);
+
+  const cities = [];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const city = candidates[i];
+    if (city.latitude && city.longitude) {
+      cities.push(city);
+      continue;
+    }
+
+    const resolved = await geocodeCity(city.query);
+    const merged = {
+      ...city,
+      latitude: resolved.latitude,
+      longitude: resolved.longitude,
+      country: resolved.country,
+      displayName: city.displayName || resolved.displayName
+    };
+    cities.push(merged);
+  }
+
+  state.cities = cities;
+  renderCitiesTable();
+  
   if (cities.length < 2) {
     setStatus(els.statusText, "Enter at least two city names for geocoded mode.", true);
     return;
   }
 
-  setStatus(els.statusText, "Resolving city coordinates...");
+  setStatus(els.statusText, "Preparing geocoded map...");
   try {
-    const resolved = [];
-    for (const city of cities) {
-      const point = await geocodeCity(city);
-      resolved.push(point);
-    }
+    const explicitLinks = buildGeocodedLinksFromCityConnections(cities);
+    const links = explicitLinks.length ? explicitLinks : buildSequentialLinks(cities);
+    const byQuery = new Map(cities.map((item) => [item.query.toLowerCase(), item]));
 
-    const explicitLinks = parseConnections(els.connectionLines.value);
-    const links = explicitLinks.length ? explicitLinks : buildSequentialLinks(resolved);
-    const byQuery = new Map(resolved.map((item) => [item.query.toLowerCase(), item]));
-
-    const bounds = computeBounds(resolved);
+    const bounds = computeBounds(cities);
     const frame = getMapFrame();
 
     drawBackground();
@@ -161,41 +949,114 @@ async function renderGeocodedMap() {
 
     drawTitle(els.mapTitle.value.trim() || "City Route Map");
     if (!tilesLoaded) {
-      drawGeographyGrid(resolved);
+      drawGeographyGrid(cities);
     }
-    drawGeocodedConnections(links, byQuery, resolved);
-    drawGeocodedNodes(resolved);
+
+    // Draw region boundaries before cities/connections
+    const regionsToRender = state.regions.filter((r) => r.osmId && r.osmType);
+    if (regionsToRender.length) {
+      setStatus(els.statusText, "Loading region boundaries...");
+      for (const region of regionsToRender) {
+        try {
+          if (!region.geojson) {
+            region.geojson = await fetchRegionGeoJSON(region.osmType, region.osmId);
+          }
+          if (region.geojson) {
+            drawRegionBoundary(region.geojson, bounds, frame, region.color, region.lineWidth);
+          }
+        } catch (err) {
+          console.warn(`Could not draw boundary for ${region.displayName}:`, err);
+        }
+      }
+    }
+
+    drawGeocodedConnections(links, byQuery, cities);
+    drawGeocodedNodes(cities);
     if (tilesLoaded) {
       drawOSMAttribution(frame);
     }
 
-    els.geocodeResults.textContent = resolved
-      .map((item) => `${item.query} -> ${item.name} (${item.latitude.toFixed(3)}, ${item.longitude.toFixed(3)})`)
+    els.geocodeResults.textContent = cities
+      .map((item) => `${item.displayName} (${item.latitude.toFixed(3)}, ${item.longitude.toFixed(3)})`)
       .join(" | ");
-    setStatus(els.statusText, `Rendered geocoded route for ${resolved.length} cities.`);
+    setStatus(els.statusText, `Rendered geocoded route for ${cities.length} cities.`);
   } catch (error) {
     setStatus(els.statusText, error.message || "Could not resolve cities.", true);
   }
 }
 
-function parseConnections(text) {
-  const lines = parseDataLines(text);
-  const links = [];
-
-  for (const line of lines) {
-    const normalized = line.replaceAll("->", "-").replaceAll(" to ", "-");
-    const [pair, labelRaw] = normalized.split(":");
-    const segments = pair.split("-").map((part) => part.trim()).filter(Boolean);
-
-    if (segments.length < 2) {
+function buildManualLinksFromCityConnections(cities) {
+  const displayNameLookup = new Map();
+  for (const city of cities) {
+    const display = String(city.displayName || city.query || "").trim();
+    const query = String(city.query || "").trim();
+    if (!display) {
       continue;
     }
+    displayNameLookup.set(display.toLowerCase(), display);
+    if (query) {
+      displayNameLookup.set(query.toLowerCase(), display);
+    }
+  }
 
-    links.push({
-      from: segments[0],
-      to: segments[1],
-      label: (labelRaw || "").trim()
-    });
+  const links = [];
+
+  for (const city of cities) {
+    const from = String(city.displayName || city.query || "").trim();
+    if (!from) {
+      continue;
+    }
+    const connections = Array.isArray(city.connections) ? city.connections : [];
+    for (const connection of connections) {
+      const targetRaw = String(connection || "").trim();
+      if (!targetRaw) {
+        continue;
+      }
+      const targetResolved = displayNameLookup.get(targetRaw.toLowerCase()) || targetRaw;
+      links.push({
+        from,
+        to: targetResolved,
+        label: ""
+      });
+    }
+  }
+
+  return links;
+}
+
+function buildGeocodedLinksFromCityConnections(cities) {
+  const queryLookup = new Map();
+  for (const city of cities) {
+    const query = String(city.query || "").trim();
+    const display = String(city.displayName || city.query || "").trim();
+    if (!query) {
+      continue;
+    }
+    queryLookup.set(query.toLowerCase(), query);
+    if (display) {
+      queryLookup.set(display.toLowerCase(), query);
+    }
+  }
+
+  const links = [];
+  for (const city of cities) {
+    const from = String(city.query || "").trim();
+    if (!from) {
+      continue;
+    }
+    const connections = Array.isArray(city.connections) ? city.connections : [];
+    for (const connection of connections) {
+      const targetRaw = String(connection || "").trim();
+      if (!targetRaw) {
+        continue;
+      }
+      const targetResolved = queryLookup.get(targetRaw.toLowerCase()) || targetRaw;
+      links.push({
+        from,
+        to: targetResolved,
+        label: ""
+      });
+    }
   }
 
   return links;
@@ -240,6 +1101,58 @@ function layoutNodes(nodes, layoutType, width, height) {
   });
 
   return positions;
+}
+
+function drawRegionBoundary(geojson, bounds, frame, color, lineWidth) {
+  ctx.save();
+  ctx.strokeStyle = color || "#e63946";
+  ctx.lineWidth = lineWidth || 3;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.setLineDash([]);
+
+  const drawRing = (coords) => {
+    if (!coords || coords.length < 2) {
+      return;
+    }
+    ctx.beginPath();
+    let started = false;
+    for (const [lon, lat] of coords) {
+      const pos = projectLatLon(lat, lon, bounds, frame);
+      if (!started) {
+        ctx.moveTo(pos.x, pos.y);
+        started = true;
+      } else {
+        ctx.lineTo(pos.x, pos.y);
+      }
+    }
+    ctx.closePath();
+    ctx.stroke();
+  };
+
+  const drawGeometry = (geometry) => {
+    if (!geometry) {
+      return;
+    }
+    if (geometry.type === "Polygon") {
+      for (const ring of geometry.coordinates) {
+        drawRing(ring);
+      }
+    } else if (geometry.type === "MultiPolygon") {
+      for (const polygon of geometry.coordinates) {
+        for (const ring of polygon) {
+          drawRing(ring);
+        }
+      }
+    } else if (geometry.type === "GeometryCollection") {
+      for (const geom of geometry.geometries || []) {
+        drawGeometry(geom);
+      }
+    }
+  };
+
+  drawGeometry(geojson);
+  ctx.restore();
 }
 
 function drawBackground() {
@@ -419,7 +1332,7 @@ function drawGeocodedNodes(points) {
 
     // Label with white halo
     ctx.font = "600 15px 'IBM Plex Sans', 'Segoe UI', sans-serif";
-    const label = city.name;
+    const label = city.displayName || city.name;
     ctx.strokeStyle = "rgba(255,255,255,0.85)";
     ctx.lineWidth = 4;
     ctx.lineJoin = "round";
@@ -443,17 +1356,31 @@ function buildSequentialLinks(points) {
 
 function normalizeCityList(input) {
   return String(input || "")
-    .split(/[\n,;]/g)
+    .split(/\r?\n/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
 }
 
 async function geocodeCity(city) {
+  // Parse city input to extract name, state/province, and country
+  // Supports: "CityName", "CityName, Province", "CityName, Province, Country", etc.
+  const parts = city.split(",").map(p => p.trim());
+  const cityName = parts[0];
+  const state = parts[1] || "";
+  const country = parts[2] || "";
+
   const endpoint = new URL("https://geocoding-api.open-meteo.com/v1/search");
-  endpoint.searchParams.set("name", city);
-  endpoint.searchParams.set("count", "1");
+  endpoint.searchParams.set("name", cityName);
+  endpoint.searchParams.set("count", "5"); // Get top 5 to find best match
   endpoint.searchParams.set("language", "en");
   endpoint.searchParams.set("format", "json");
+  
+  if (country) {
+    endpoint.searchParams.set("country", country);
+  }
+  if (state) {
+    endpoint.searchParams.set("admin1", state);
+  }
 
   const response = await fetch(endpoint);
   if (!response.ok) {
@@ -461,7 +1388,22 @@ async function geocodeCity(city) {
   }
 
   const payload = await response.json();
-  const match = payload.results?.[0];
+  const results = payload.results || [];
+  
+  let match = null;
+  
+  // If state or country specified, find best match
+  if (state || country) {
+    match = results.find(r => {
+      const adminMatch = !state || (r.admin1 && r.admin1.toLowerCase() === state.toLowerCase());
+      const countryMatch = !country || (r.country && r.country.toLowerCase() === country.toLowerCase());
+      return adminMatch && countryMatch;
+    });
+  }
+  
+  // Fall back to first result if no specific match found
+  match = match || results[0];
+  
   if (!match) {
     throw new Error(`Could not find city \"${city}\".`);
   }
@@ -470,6 +1412,7 @@ async function geocodeCity(city) {
   return {
     query: city,
     name: suffix ? `${match.name}, ${suffix}` : match.name,
+    displayName: match.name,
     country: match.country || "",
     latitude: Number(match.latitude),
     longitude: Number(match.longitude)

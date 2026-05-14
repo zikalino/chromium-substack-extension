@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
   citations: "citations",
   bookmarks: "bookmarks",
   images: "imageAssets",
-  notes: "notesDraft"
+  notes: "notesDraft",
+  bookmarkDraftPrefix: "bookmarkDraft:"
 };
 
 const MENU_IDS = {
@@ -13,6 +14,10 @@ const MENU_IDS = {
   addBookmark: "substack-add-bookmark",
   addImage: "substack-add-image"
 };
+
+// Keep capture drafts ephemeral so opening the URL capture tab does not consume storage quota.
+const BOOKMARK_DRAFT_CACHE = new Map();
+const MAX_BOOKMARK_DRAFTS = 10;
 
 chrome.runtime.onInstalled.addListener(async () => {
   await ensureDefaults();
@@ -77,6 +82,12 @@ async function handleMessage(message, sender) {
       return addCitation(message.payload);
     case "sidepanel:add-bookmark":
       return addBookmark(message.payload);
+    case "sidepanel:create-bookmark-draft-from-active":
+      return createBookmarkDraftFromActiveTab();
+    case "bookmark-draft:get":
+      return getBookmarkDraft(message.payload);
+    case "bookmark-draft:delete":
+      return deleteBookmarkDraft(message.payload);
     case "sidepanel:add-image":
       return addImage(message.payload);
     case "sidepanel:save-notes":
@@ -91,6 +102,8 @@ async function handleMessage(message, sender) {
       return getActiveTabContext();
     case "sidepanel:insert-into-editor":
       return insertIntoEditorTab(message.payload);
+    case "sidepanel:insert-bookmark-into-editor":
+      return insertBookmarkIntoEditorTab(message.payload);
     case "sidepanel:insert-image-into-editor":
       return insertImageIntoEditorTab(message.payload);
     default:
@@ -170,6 +183,9 @@ async function addBookmark(payload = {}) {
     id: crypto.randomUUID(),
     pageUrl: payload.pageUrl || "",
     title: payload.title || "Untitled",
+    screenshotDataUrl: payload.screenshotDataUrl || "",
+    imageUrls: normalizeImageUrlList(payload.imageUrls),
+    imageDetails: normalizeImageDetails(payload.imageDetails),
     createdAt: new Date().toISOString()
   };
 
@@ -182,12 +198,153 @@ async function addBookmark(payload = {}) {
   return bookmark;
 }
 
+async function createBookmarkDraftFromActiveTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) {
+    throw new Error("No active tab found.");
+  }
+
+  const pageCapture = await sendToContentScript(
+    tab.id,
+    { type: "content:capture-page-assets" },
+    ["src/content/general-page.js"]
+  );
+  if (!pageCapture?.ok) {
+    throw new Error(pageCapture?.error || "Could not capture active page details.");
+  }
+
+  const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+  const imageDetails = normalizeImageDetails(pageCapture.payload?.imageDetails || []);
+  const draft = {
+    id: crypto.randomUUID(),
+    title: pageCapture.payload?.title || tab.title || "Untitled page",
+    pageUrl: pageCapture.payload?.resolvedUrl || pageCapture.payload?.url || tab.url || "",
+    screenshotDataUrl: screenshotDataUrl || "",
+    includeScreenshot: true,
+    imageUrls: imageDetails.length
+      ? imageDetails.map((item) => item.url)
+      : normalizeImageUrlList(pageCapture.payload?.imageUrls || []),
+    imageDetails
+  };
+
+  if (!draft.pageUrl) {
+    throw new Error("Could not capture a valid URL from the active tab.");
+  }
+
+  cacheBookmarkDraft(draft.id, draft);
+
+  await chrome.tabs.create({
+    url: chrome.runtime.getURL(`src/creators/url-creator.html?draftId=${encodeURIComponent(draft.id)}`)
+  });
+
+  return { draftId: draft.id };
+}
+
+async function getBookmarkDraft(payload = {}) {
+  const draftId = String(payload.draftId || "").trim();
+  if (!draftId) {
+    throw new Error("Draft id is required.");
+  }
+
+  const cachedDraft = BOOKMARK_DRAFT_CACHE.get(draftId);
+  if (cachedDraft) {
+    return cachedDraft;
+  }
+
+  const key = getBookmarkDraftStorageKey(draftId);
+  const result = await chrome.storage.local.get([key]);
+  return result[key] || null;
+}
+
+async function deleteBookmarkDraft(payload = {}) {
+  const draftId = String(payload.draftId || "").trim();
+  if (!draftId) {
+    return { deleted: false };
+  }
+
+  BOOKMARK_DRAFT_CACHE.delete(draftId);
+
+  const key = getBookmarkDraftStorageKey(draftId);
+  await chrome.storage.local.remove([key]);
+  return { deleted: true };
+}
+
+function cacheBookmarkDraft(draftId, draft) {
+  if (!draftId) {
+    return;
+  }
+
+  BOOKMARK_DRAFT_CACHE.set(draftId, draft);
+  while (BOOKMARK_DRAFT_CACHE.size > MAX_BOOKMARK_DRAFTS) {
+    const firstKey = BOOKMARK_DRAFT_CACHE.keys().next().value;
+    if (!firstKey) {
+      break;
+    }
+    BOOKMARK_DRAFT_CACHE.delete(firstKey);
+  }
+}
+
+function getBookmarkDraftStorageKey(draftId) {
+  return `${STORAGE_KEYS.bookmarkDraftPrefix}${draftId}`;
+}
+
+function normalizeImageUrlList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const list = [];
+
+  for (const rawItem of value) {
+    const item = String(rawItem || "").trim();
+    if (!item || seen.has(item)) {
+      continue;
+    }
+    seen.add(item);
+    list.push(item);
+  }
+
+  return list;
+}
+
+function normalizeImageDetails(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const list = [];
+
+  for (const rawItem of value) {
+    if (!rawItem || typeof rawItem !== "object") {
+      continue;
+    }
+
+    const url = String(rawItem.url || "").trim();
+    if (!url || seen.has(url)) {
+      continue;
+    }
+    seen.add(url);
+
+    list.push({
+      url,
+      source: String(rawItem.source || "").trim(),
+      notes: String(rawItem.notes || "").trim()
+    });
+  }
+
+  return list;
+}
+
 async function addImage(payload = {}) {
   const images = await readArray(STORAGE_KEYS.images);
   const normalizedSourceUrl = normalizeImageSourceUrl(payload.sourceUrl || "");
+  const sourceIsDataUrl = isImageDataUrl(normalizedSourceUrl);
   const imageAsset = {
     id: crypto.randomUUID(),
-    sourceUrl: normalizedSourceUrl,
+    // Avoid storing duplicate payload for data URLs.
+    sourceUrl: sourceIsDataUrl ? "" : normalizedSourceUrl,
     pageUrl: payload.pageUrl || "",
     title: payload.title || "Image",
     createdAt: new Date().toISOString(),
@@ -197,14 +354,37 @@ async function addImage(payload = {}) {
     editorState: normalizeEditorState(payload.editorState)
   };
 
-  if (!imageAsset.sourceUrl) {
+  if (!normalizedSourceUrl) {
     throw new Error("Image source URL cannot be empty.");
   }
 
-  imageAsset.dataUrl = await fetchAsDataUrl(imageAsset.sourceUrl);
+  imageAsset.dataUrl = sourceIsDataUrl
+    ? normalizedSourceUrl
+    : await fetchAsDataUrl(normalizedSourceUrl);
   images.unshift(imageAsset);
-  await chrome.storage.local.set({ [STORAGE_KEYS.images]: images.slice(0, 200) });
+
+  await persistImagesWithQuotaGuard(images);
   return imageAsset;
+}
+
+async function persistImagesWithQuotaGuard(images) {
+  // Keep newest first and cap count, then prune oldest entries until quota accepts.
+  let next = images.slice(0, 200);
+
+  while (next.length > 0) {
+    try {
+      await chrome.storage.local.set({ [STORAGE_KEYS.images]: next });
+      return;
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (!/quota/i.test(message) || next.length <= 1) {
+        throw error;
+      }
+      next = next.slice(0, next.length - 1);
+    }
+  }
+
+  throw new Error("Storage quota exceeded. Could not save image asset.");
 }
 
 function normalizeEditorMetadata(editor) {
@@ -237,14 +417,14 @@ async function getActiveTabContext() {
   return { url, isSubstackEditor };
 }
 
-async function sendToContentScript(tabId, message) {
+async function sendToContentScript(tabId, message, fallbackFiles = ["src/content/substack-page.js"]) {
   try {
     return await chrome.tabs.sendMessage(tabId, message);
   } catch {
     // Content script not yet injected (tab was open before extension loaded). Inject it now.
     await chrome.scripting.executeScript({
       target: { tabId },
-      files: ["src/content/substack-page.js"]
+      files: fallbackFiles
     });
     // Brief wait for the listener to register before retrying.
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -276,6 +456,31 @@ async function insertIntoEditorTab(payload) {
 
   if (!result?.ok) {
     throw new Error(result?.error || "Insertion failed.");
+  }
+
+  return result;
+}
+
+async function insertBookmarkIntoEditorTab(payload = {}) {
+  const bookmarkId = String(payload.bookmarkId || "").trim();
+  if (!bookmarkId) {
+    throw new Error("Bookmark id is required.");
+  }
+
+  const bookmarks = await readArray(STORAGE_KEYS.bookmarks);
+  const bookmark = bookmarks.find((item) => item.id === bookmarkId);
+  if (!bookmark) {
+    throw new Error("Bookmark not found.");
+  }
+
+  const tab = await getActiveSubstackTab();
+  const result = await sendToContentScript(tab.id, {
+    type: "content:insert-bookmark-into-editor",
+    payload: { bookmark }
+  });
+
+  if (!result?.ok) {
+    throw new Error(result?.error || "Bookmark insertion failed.");
   }
 
   return result;

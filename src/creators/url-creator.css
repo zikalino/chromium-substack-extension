@@ -1,0 +1,263 @@
+:root {
+  --bg: #f3f4ef;
+  --surface: #fffdf7;
+  --ink: #1c251e;
+  --muted: #657064;
+  --accent: #2f5f4f;
+  --accent-warm: #d9652b;
+  --border: #d8d4c8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%, #f9e7c8 0, transparent 40%),
+    radial-gradient(circle at 85% 0%, #d8f0e4 0, transparent 40%),
+    var(--bg);
+}
+
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.status {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="url"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.45rem;
+  background: #fff;
+  color: var(--ink);
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0.05rem 0.35rem;
+  margin-left: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink);
+}
+
+.screenshot-block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.screenshot-block.hidden {
+  display: none;
+}
+
+#screenshot-canvas {
+  width: 100%;
+  max-height: 460px;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: #fff;
+}
+
+.crop-overlay {
+  position: absolute;
+  border: 2px dashed var(--accent-warm);
+  pointer-events: none;
+}
+
+.crop-overlay.hidden {
+  display: none;
+}
+
+.crop-tools,
+.footer {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: var(--ink);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+#save-bookmark {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.image-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.image-item {
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  padding: 0.45rem;
+  display: grid;
+  grid-template-columns: auto 56px 1fr;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.image-item img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 0.35rem;
+}
+
+.image-item a {
+  color: var(--accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-info {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.image-info .meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-info .size {
+  font-size: 0.72rem;
+  color: var(--accent);
+}
+
+.hover-preview {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  width: min(420px, 52vw);
+  max-height: 320px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: rgba(255, 253, 247, 0.98);
+  box-shadow: 0 10px 28px rgba(31, 42, 31, 0.2);
+}
+
+.hover-preview.hidden {
+  display: none;
+}
+
+.hover-preview img {
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  border-radius: 0.35rem;
+  background: #fff;
+}
+
+.hover-preview .caption {
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .image-item {
+    grid-template-columns: auto 1fr;
+  }
+
+  .image-item img {
+    display: none;
+  }
+
+  .hover-preview {
+    display: none !important;
+  }
+}
